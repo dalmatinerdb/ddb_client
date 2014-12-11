@@ -98,7 +98,7 @@ get(Bucket, Metric, Time, Count, Con =  #ddb_connection{mode = normal}) ->
         {ok, Con1 = #ddb_connection{socket = Socket}} ->
             case gen_tcp:recv(Socket, 0, ?TIMEOUT) of
                 {ok, <<Resolution:64/integer, D/binary>>} ->
-                    {ok, {ok, Resolution, D}, Con1};
+                    {ok, {Resolution, D}, Con1};
                 {error, E} ->
                     {error, E, Con1}
             end;
