@@ -86,7 +86,9 @@ list(Con) ->
     {error, stream, Con}.
 
 list(Bucket, Con =  #ddb_connection{mode = normal}) ->
-    do_list(send_bin(<<?LIST, Bucket/binary>>, Con));
+    do_list(send_bin(<<?LIST,
+                       (byte_size(Bucket)):?BUCKET_SS/integer,
+                       Bucket/binary>>, Con));
 
 list(_Bucket, Con) ->
     {error, stream, Con}.
