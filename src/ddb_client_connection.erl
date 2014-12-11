@@ -1,6 +1,7 @@
 -module(ddb_client_connection).
 
 -include_lib("dproto/include/dproto.hrl").
+-define(TIMEOUT, 30000).
 
 -export([
          connect/2,
@@ -96,7 +97,7 @@ get(Bucket, Metric, Time, Count, Con =  #ddb_connection{mode = normal}) ->
                     (dproto_tcp:encode_get(Bucket, Metric, Time, Count))/binary>>,
                   Con) of
         {ok, Con1 = #ddb_connection{socket = Socket}} ->
-            case gen_tcp:recv(S, 0, ?TIMEOUT) of
+            case gen_tcp:recv(Socket, 0, ?TIMEOUT) of
                 {ok, <<Resolution:64/integer, D/binary>>} ->
                     {ok, {ok, Resolution, D}, Con1};
                 {error, E} ->
