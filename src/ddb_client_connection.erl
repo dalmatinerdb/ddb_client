@@ -80,17 +80,16 @@ stream_mode(Bucket, Delay, Con) ->
     end.
 
 list(Con =  #ddb_connection{mode = normal}) ->
-    send_bin(<<?BUCKETS>>, Con);
+    do_list(send_bin(<<?BUCKETS>>, Con));
 
 list(Con) ->
     {error, stream, Con}.
 
 list(Bucket, Con =  #ddb_connection{mode = normal}) ->
-    send_bin(<<?LIST, Bucket/binary>>, Con);
+    do_list(send_bin(<<?LIST, Bucket/binary>>, Con));
 
 list(_Bucket, Con) ->
     {error, stream, Con}.
-
 
 get(Bucket, Metric, Time, Count, Con =  #ddb_connection{mode = normal}) ->
     case send_bin(<<?GET,
@@ -132,6 +131,10 @@ disconnect(Con = #ddb_connection{socket = Sock}) ->
     gen_tcp:close(Sock),
     Con#ddb_connection{socket = undefined}.
 
+
+%%%===================================================================
+%%% Internal functions
+%%%===================================================================
 
 send_bin(Bin, Con = #ddb_connection{socket = undefined}) ->
     send1(Bin, reconnect(Con));
@@ -176,3 +179,18 @@ reset_state(Con) ->
     Con.
 
 
+decode_metrics(<<>>, Acc) ->
+    Acc;
+
+decode_metrics(<<S:16/integer, M:S/binary, R/binary>>, Acc) ->
+    decode_metrics(R, [M | Acc]).
+
+do_list({ok, Con1 = #ddb_connection{socket = S}}) ->
+                case gen_tcp:recv(S, 0, ?TIMEOUT) of
+                {ok, <<Size:32/integer, Reply:Size/binary>>} ->
+                    {ok, decode_metrics(Reply, []), Con1};
+                {error, E} ->
+                    {error, E, Con1}
+            end;
+do_list(Error) ->
+    Error.
