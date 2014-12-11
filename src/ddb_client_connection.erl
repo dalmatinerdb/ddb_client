@@ -8,7 +8,7 @@
          connect/1,
          mode/1,
          connected/1,
-         disconnect/1,
+         close/1,
          stream_mode/3,
          list/1,
          list/2,
@@ -127,9 +127,9 @@ send(Metric, Time, Points, Con =  #ddb_connection{mode = stream}) ->
 send(_, _, _, Con) ->
     {error, no_stream, Con}.
 
-disconnect(Con = #ddb_connection{socket = undefined}) ->
+close(Con = #ddb_connection{socket = undefined}) ->
     Con;
-disconnect(Con = #ddb_connection{socket = Sock}) ->
+close(Con = #ddb_connection{socket = Sock}) ->
     gen_tcp:close(Sock),
     Con#ddb_connection{socket = undefined}.
 
@@ -144,7 +144,7 @@ send_bin(Bin, Con = #ddb_connection{socket = undefined}) ->
 send_bin(Bin, Con = #ddb_connection{socket = Sock}) ->
     case gen_tcp:send(Sock, Bin) of
         {error, _E} ->
-            send1(Bin, reconnect(disconnect(Con)));
+            send1(Bin, reconnect(close(Con)));
         _ ->
             {ok, Con}
     end.
@@ -154,7 +154,7 @@ send1(_Bin, Con = #ddb_connection{socket = undefined, error = E}) ->
 send1(Bin, Con = #ddb_connection{socket = Sock}) ->
     case gen_tcp:send(Sock, Bin) of
         {error, E} ->
-            {error, E, disconnect(Con)};
+            {error, E, close(Con)};
         _ ->
             {ok, Con}
     end.
