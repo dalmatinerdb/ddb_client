@@ -26,7 +26,7 @@
          error = none,
          delay = 1}).
 
--define(OPTS, [{activea, false}, binary, {packet, 4}]).
+-define(OPTS, [binary, {packet, 4}, {active, false}]).
 
 connect(Host, Port) ->
     case gen_tcp:connect(Host, Port, ?OPTS) of
