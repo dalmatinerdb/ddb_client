@@ -50,7 +50,6 @@
          error = none,
          delay = 1}).
 
-
 %%--------------------------------------------------------------------
 %% @type connection().
 %%
@@ -330,7 +329,7 @@ reconnect(Con) ->
 reset_state(Con = #ddb_connection{socket = undefined}) ->
     Con;
 reset_state(Con = #ddb_connection{socket = Socket, mode = stream}) ->
-    en_tcp:setopts(Socket, [{packet, 0}]),
+    gen_tcp:setopts(Socket, [{packet, 0}]),
     Con;
 reset_state(Con) ->
     Con.
