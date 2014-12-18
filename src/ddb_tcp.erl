@@ -315,7 +315,7 @@ decode_metrics(<<S:16/integer, M:S/binary, R/binary>>, Acc) ->
 
 do_list({ok, Con1 = #ddb_connection{socket = S}}) ->
                 case gen_tcp:recv(S, 0, ?TIMEOUT) of
-                {ok, <<Size:32/integer, Reply:Size/binary>>} ->
+                {ok, <<Size:?METRICS_SS/?SIZE_TYPE, Reply:Size/binary>>} ->
                     {ok, decode_metrics(Reply, []), Con1};
                 {error, E} ->
                     {error, E, Con1}
