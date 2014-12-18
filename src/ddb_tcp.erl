@@ -151,7 +151,7 @@ stream_mode(_Bucket, _Delay, #ddb_connection{mode = stream,
     {error, {stream, OldBucket, OldDelay}};
 
 stream_mode(Bucket, Delay, Con) ->
-    Bin = dproto_tcp:encode_start_stream(Bucket, Delay),
+    Bin = dproto_tcp:encode({stream, Bucket, Delay}),
     Con1 = Con#ddb_connection{mode = stream,
                               bucket = Bucket,
                               delay = Delay},
@@ -240,7 +240,7 @@ get(_, _, _, _, _Con) ->
 %%--------------------------------------------------------------------
 
 send(Metric, Time, Points, Con =  #ddb_connection{mode = stream}) ->
-    send_bin(dproto_tcp:stream({stream, Metric, Time, Points}), Con);
+    send_bin(dproto_tcp:encode({stream, Metric, Time, Points}), Con);
 
 send(_, _, _, _Con) ->
     {error, no_stream}.
@@ -301,7 +301,7 @@ reconnect(Con) ->
 reset_state(Con = #ddb_connection{socket = undefined}) ->
     Con;
 reset_state(Con = #ddb_connection{socket = Socket, mode = stream}) ->
-    gen_tcp:setopts(Socket, [{packet, 0}]),
+    inet:setopts(Socket, [{packet, 0}]),
     Con;
 reset_state(Con) ->
     Con.
