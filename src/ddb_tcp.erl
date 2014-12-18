@@ -35,8 +35,7 @@
          list/1,
          list/2,
          get/5,
-         send/4,
-         send/5
+         send/4
         ]).
 
 -export_type([connection/0]).
@@ -173,7 +172,7 @@ stream_mode(Bucket, Delay, Con) ->
 %% @end
 %%--------------------------------------------------------------------
 list(Con =  #ddb_connection{mode = normal}) ->
-    do_list(send_bin(<<?BUCKETS>>, Con));
+    do_list(send_bin(dproto_tcp:encode(buckets), Con));
 
 list(_Con) ->
     {error, stream}.
@@ -188,9 +187,7 @@ list(_Con) ->
 %% @end
 %%--------------------------------------------------------------------
 list(Bucket, Con =  #ddb_connection{mode = normal}) ->
-    do_list(send_bin(<<?LIST,
-                       (byte_size(Bucket)):?BUCKET_SS/integer,
-                       Bucket/binary>>, Con));
+    do_list(send_bin(dproto_tcp:encode({list, Bucket}), Con));
 
 list(_Bucket, _Con) ->
     {error, stream}.
@@ -213,9 +210,7 @@ list(_Bucket, _Con) ->
 %%--------------------------------------------------------------------
 
 get(Bucket, Metric, Time, Count, Con =  #ddb_connection{mode = normal}) ->
-    case send_bin(<<?GET,
-                    (dproto_tcp:encode_get(Bucket, Metric, Time, Count))/binary>>,
-                  Con) of
+    case send_bin(dproto_tcp:encode({get, Bucket, Metric, Time, Count}), Con) of
         {ok, Con1 = #ddb_connection{socket = Socket}} ->
             case gen_tcp:recv(Socket, 0, ?TIMEOUT) of
                 {ok, <<Resolution:64/integer, D/binary>>} ->
@@ -228,30 +223,6 @@ get(Bucket, Metric, Time, Count, Con =  #ddb_connection{mode = normal}) ->
     end;
 
 get(_, _, _, _, _Con) ->
-    {error, stream}.
-
-
-%%--------------------------------------------------------------------
-%% @doc Sends data to the server on non streaming mode. Returns an
-%% error when in stream mode.
-%%
-%% @spec send(Bucket :: binary(),
-%%            Metric :: binary(),
-%%            Time :: pos_integer(),
-%%            Points :: [integer()] | binary(),
-%%            Connection :: connection()) ->
-%%         {ok, Connection :: connection()} |
-%%         {error, Error :: inet:posix(), Connection :: connection()} |
-%%         {error, stream}
-%% @end
-%%--------------------------------------------------------------------
-
-send(Bucket, Metric, Time, Points, Con =  #ddb_connection{mode = normal}) ->
-    send_bin(<<?PUT,
-               (dproto_udp:encode_header(Bucket))/binary,
-               (dproto_udp:encode_points(Metric, Time, Points))/binary>>, Con);
-
-send(_, _, _, _, _Con) ->
     {error, stream}.
 
 %%--------------------------------------------------------------------
@@ -269,7 +240,7 @@ send(_, _, _, _, _Con) ->
 %%--------------------------------------------------------------------
 
 send(Metric, Time, Points, Con =  #ddb_connection{mode = stream}) ->
-    send_bin(dproto_tcp:encode_stream_payload(Metric, Time, Points), Con);
+    send_bin(dproto_tcp:stream({stream, Metric, Time, Points}), Con);
 
 send(_, _, _, _Con) ->
     {error, no_stream}.
@@ -283,6 +254,7 @@ send(_, _, _, _Con) ->
 %%--------------------------------------------------------------------
 close(Con = #ddb_connection{socket = undefined}) ->
     Con;
+
 close(Con = #ddb_connection{socket = Sock}) ->
     gen_tcp:close(Sock),
     Con#ddb_connection{socket = undefined}.
