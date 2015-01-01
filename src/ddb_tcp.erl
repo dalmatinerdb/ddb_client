@@ -216,7 +216,7 @@ get(Bucket, Metric, Time, Count, Con =  #ddb_connection{mode = normal}) ->
                 {ok, <<Resolution:64/integer, D/binary>>} ->
                     {ok, {Resolution, D}, Con1};
                 {error, E} ->
-                    {error, E, Con1}
+                    {error, E, close(Con1)}
             end;
         E ->
             E
@@ -314,11 +314,11 @@ decode_metrics(<<S:16/integer, M:S/binary, R/binary>>, Acc) ->
     decode_metrics(R, [M | Acc]).
 
 do_list({ok, Con1 = #ddb_connection{socket = S}}) ->
-                case gen_tcp:recv(S, 0, ?TIMEOUT) of
-                {ok, <<Size:?METRICS_SS/?SIZE_TYPE, Reply:Size/binary>>} ->
-                    {ok, decode_metrics(Reply, []), Con1};
-                {error, E} ->
-                    {error, E, Con1}
-            end;
+    case gen_tcp:recv(S, 0, ?TIMEOUT) of
+        {ok, <<Size:?METRICS_SS/?SIZE_TYPE, Reply:Size/binary>>} ->
+            {ok, decode_metrics(Reply, []), Con1};
+        {error, E} ->
+            {error, E, Con1}
+    end;
 do_list(Error) ->
     Error.
