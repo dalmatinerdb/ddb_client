@@ -290,7 +290,7 @@ reconnect(Con = #ddb_connection{socket = undefined,
                                 port = Port}) ->
     case gen_tcp:connect(Host, Port, ?OPTS) of
         {ok, Socket} ->
-            reset_state(Con#ddb_connection{socket = Socket, error = none});
+            reset_stream(Con#ddb_connection{socket = Socket, error = none});
         {error, E} ->
             Con#ddb_connection{error = E}
     end;
@@ -298,9 +298,23 @@ reconnect(Con = #ddb_connection{socket = undefined,
 reconnect(Con) ->
     Con.
 
-reset_state(Con = #ddb_connection{socket = undefined}) ->
-    Con;
-reset_state(Con = #ddb_connection{socket = Socket, mode = stream}) ->
+reset_stream(Con = #ddb_connection{socket = _S,
+                                   mode = stream,
+                                   bucket = Bucket,
+                                   delay = Delay}) when _S /= undefined ->
+    Bin = dproto_tcp:encode({stream, Bucket, Delay}),
+    case send_bin(Bin, Con) of
+        {ok, Con1} ->
+            {ok, reset_state(Con1)};
+        E ->
+            E
+    end;
+
+reset_stream(Con) ->
+    reset_state(Con).
+
+reset_state(Con = #ddb_connection{socket = Socket, mode = stream})
+  when Socket /= undefined ->
     inet:setopts(Socket, [{packet, 0}]),
     Con;
 reset_state(Con) ->
