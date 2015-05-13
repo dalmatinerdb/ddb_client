@@ -66,11 +66,11 @@
 %%
 %% To test for connection use {@link connected/1}.
 %%
-%% @spec connect(Host :: inet:ip_address() | inet:hostname(),
-%%               Port :: inet:port_number()) ->
-%%         connection()
 %% @end
 %%--------------------------------------------------------------------
+-spec connect(Host :: inet:ip_address() | inet:hostname(),
+              Port :: inet:port_number()) ->
+                     {ok, connection()}.
 
 connect(Host, Port) ->
     case gen_tcp:connect(Host, Port, ?OPTS) of
@@ -93,10 +93,10 @@ connect(Host, Port) ->
 %% @doc Forces a reconnect on a disconnected connection, has no effect
 %% on connections that are still connected.
 %%
-%% @spec connect(Connection :: connection()) ->
-%%         connection()
 %% @end
 %%--------------------------------------------------------------------
+-spec connect(Connection :: connection()) ->
+         connection().
 
 connect(Con) ->
     reconnect(Con).
@@ -105,11 +105,12 @@ connect(Con) ->
 %% @doc Shows what mode the connection is in and if in stream mode
 %% which bucket the data is streamed to.
 %%
-%% @spec mode(Connection :: connection()) ->
-%%         {ok, normal} |
-%%         {ok, {stream, Bucket :: binary()}}
 %% @end
 %%--------------------------------------------------------------------
+-spec mode(Connection :: connection()) ->
+                  {ok, normal} |
+                  {ok, {stream, Bucket :: binary()}}.
+
 mode(#ddb_connection{mode = stream, bucket=Bucket}) ->
     {ok, {stream, Bucket}};
 mode(#ddb_connection{mode = normal}) ->
@@ -119,10 +120,11 @@ mode(#ddb_connection{mode = normal}) ->
 %% @doc Shows weather a connection is currently connected to the kback
 %% backend or awaiting reconncet.
 %%
-%% @spec connected(Connection :: connection()) ->
-%%         boolean()
 %% @end
 %%--------------------------------------------------------------------
+-spec connected(Connection :: connection()) ->
+                       boolean().
+
 connected(#ddb_connection{socket = undefined}) ->
     false;
 connected(_) ->
@@ -133,22 +135,24 @@ connected(_) ->
 %% stream mode before an error is returned unless the requested stream
 %% parameters are equal to the current ones.
 %%
-%% @spec stream_mode(Bucket :: binary(),
-%%                   Delay :: pos_integer(),
-%%                   Connection :: connection()) ->
-%%         {ok, Connection :: connection()} |
-%%         {error, {stream, OldBucket :: binary(),
-%%                          OldDelay :: pos_integer()}}
 %% @end
 %%--------------------------------------------------------------------
+-spec stream_mode(Bucket :: binary(),
+                  Delay :: pos_integer(),
+                  Connection :: connection()) ->
+                         {ok, Connection :: connection()} |
+                         {error, {stream, OldBucket :: binary(),
+                                  OldDelay :: pos_integer()},
+                          Connection :: connection()}.
+
 stream_mode(Bucket, Delay, Con = #ddb_connection{mode = stream,
                                                  bucket = Bucket,
                                                  delay = Delay}) ->
     {ok, Con};
-stream_mode(_Bucket, _Delay, #ddb_connection{mode = stream,
+stream_mode(_Bucket, _Delay, Con = #ddb_connection{mode = stream,
                                              bucket = OldBucket,
                                              delay = OldDelay}) ->
-    {error, {stream, OldBucket, OldDelay}};
+    {error, {stream, OldBucket, OldDelay}, Con};
 
 stream_mode(Bucket, Delay, Con) ->
     Bin = dproto_tcp:encode({stream, Bucket, Delay}),
@@ -166,48 +170,50 @@ stream_mode(Bucket, Delay, Con) ->
 %% @doc Retrives a list fo all buckets on the srever. Returns an error
 %% when in stream mode.
 %%
-%% @spec list(Connection :: connection()) ->
-%%         {ok, [Bucket :: binary()], Connection :: connection()} |
-%%         {error, stream}
 %% @end
 %%--------------------------------------------------------------------
+-spec list(Connection :: connection()) ->
+                  {ok, [Bucket :: binary()], Connection :: connection()} |
+                  {error, stream, Connection :: connection()}.
+
 list(Con =  #ddb_connection{mode = normal}) ->
     do_list(send_bin(dproto_tcp:encode(buckets), Con));
 
-list(_Con) ->
-    {error, stream}.
+list(Con) ->
+    {error, stream, Con}.
 
 %%--------------------------------------------------------------------
 %% @doc Retrives a list fo all metrics in a bucket. Returns an error
 %% when in stream mode.
 %%
-%% @spec list(Bucket :: binary(), Connection :: connection()) ->
-%%         {ok, [Metric :: binary()], Connection :: connection()} |
-%%         {error, stream}
 %% @end
 %%--------------------------------------------------------------------
+-spec list(Bucket :: binary(), Connection :: connection()) ->
+                  {ok, [Metric :: binary()], Connection :: connection()} |
+                  {error, stream, Connection :: connection()}.
+
 list(Bucket, Con =  #ddb_connection{mode = normal}) ->
     do_list(send_bin(dproto_tcp:encode({list, Bucket}), Con));
 
-list(_Bucket, _Con) ->
-    {error, stream}.
+list(_Bucket, Con) ->
+    {error, stream, Con}.
 
 %%--------------------------------------------------------------------
 %% @doc Retrives a range of data from a metric or an error when in
 %% stream mode.
 %%
-%% @spec get(Bucket :: binary(),
-%%           Metric :: binary(),
-%%           Time :: pos_integer(),
-%%           Count :: pos_integer(),
-%%           Connection :: connection()) ->
-%%         {ok, {Resolution :: pos_integer(),
-%%               Data :: binary()},
-%%              Connection :: connection()} |
-%%         {error, Error :: inet:posix(), Connection :: connection()} |
-%%         {error, stream}
 %% @end
 %%--------------------------------------------------------------------
+-spec get(Bucket :: binary(),
+          Metric :: binary(),
+          Time :: pos_integer(),
+          Count :: pos_integer(),
+          Connection :: connection()) ->
+                 {ok, {Resolution :: pos_integer(),
+                       Data :: binary()},
+                  Connection :: connection()} |
+                 {error, Error :: inet:posix(), Connection :: connection()} |
+                 {error, stream, Connection :: connection()}.
 
 get(Bucket, Metric, Time, Count, Con =  #ddb_connection{mode = normal}) ->
     case send_bin(dproto_tcp:encode({get, Bucket, Metric, Time, Count}), Con) of
@@ -222,36 +228,37 @@ get(Bucket, Metric, Time, Count, Con =  #ddb_connection{mode = normal}) ->
             E
     end;
 
-get(_, _, _, _, _Con) ->
-    {error, stream}.
+get(_, _, _, _, Con) ->
+    {error, stream, Con}.
 
 %%--------------------------------------------------------------------
 %% @doc Sends data to the server on streaming mode. Returns an error
 %% when in stream mode.
 %%
-%% @spec send(Metric :: binary(),
-%%            Time :: pos_integer(),
-%%            Points :: [integer()] | binary(),
-%%            Connection :: connection()) ->
-%%         {ok, Connection :: connection()} |
-%%         {error, Error :: inet:posix(), Connection :: connection()} |
-%%         {error, no_stream}
 %% @end
 %%--------------------------------------------------------------------
+-spec send(Metric :: binary(),
+           Time :: pos_integer(),
+           Points :: [integer()] | binary(),
+           Connection :: connection()) ->
+                  {ok, Connection :: connection()} |
+                  {error, Error :: inet:posix(), Connection :: connection()} |
+                  {error, no_stream, Connection :: connection()}.
 
 send(Metric, Time, Points, Con =  #ddb_connection{mode = stream}) ->
     send_bin(dproto_tcp:encode({stream, Metric, Time, Points}), Con);
 
-send(_, _, _, _Con) ->
-    {error, no_stream}.
+send(_, _, _, Con) ->
+    {error, no_stream, Con}.
 
 %%--------------------------------------------------------------------
 %% @doc Forces to close a conneciton.
 %%
-%% @spec close(Connection :: connection()) ->
-%%         Connection :: connection()
 %% @end
 %%--------------------------------------------------------------------
+-spec close(Connection :: connection()) ->
+                   Connection :: connection().
+
 close(Con = #ddb_connection{socket = undefined}) ->
     Con;
 
@@ -334,5 +341,6 @@ do_list({ok, Con1 = #ddb_connection{socket = S}}) ->
         {error, E} ->
             {error, E, Con1}
     end;
+
 do_list(Error) ->
     Error.
