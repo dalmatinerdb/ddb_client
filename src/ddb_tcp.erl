@@ -96,7 +96,7 @@ connect(Host, Port) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec connect(Connection :: connection()) ->
-         connection().
+                     {ok, connection()}.
 
 connect(Con) ->
     {ok, reconnect(Con)}.
@@ -292,6 +292,8 @@ send1(Bin, Con = #ddb_connection{socket = Sock}) ->
             {ok, Con}
     end.
 
+-spec reconnect(connection()) ->
+                       connection().
 reconnect(Con = #ddb_connection{socket = undefined,
                                 host = Host,
                                 port = Port}) ->
