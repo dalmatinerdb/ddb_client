@@ -99,7 +99,7 @@ connect(Host, Port) ->
          connection().
 
 connect(Con) ->
-    reconnect(Con).
+    {ok, reconnect(Con)}.
 
 %%--------------------------------------------------------------------
 %% @doc Shows what mode the connection is in and if in stream mode
@@ -312,7 +312,7 @@ reset_stream(Con = #ddb_connection{socket = _S,
     Bin = dproto_tcp:encode({stream, Bucket, Delay}),
     case send_bin(Bin, Con) of
         {ok, Con1} ->
-            {ok, reset_state(Con1)};
+            reset_state(Con1);
         E ->
             E
     end;
