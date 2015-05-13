@@ -40,8 +40,10 @@
 
 -export_type([connection/0]).
 
+-type socket() :: port().
+
 -record(ddb_connection,
-        {socket :: gen_tcp:socket() | undefined,
+        {socket :: socket() | undefined,
          host,
          port,
          mode = normal,
