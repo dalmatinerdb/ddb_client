@@ -37,6 +37,7 @@
          get/5,
          send/4,
          batch_start/2,
+         batch/2,
          batch/3,
          batch_end/1
         ]).
@@ -177,6 +178,13 @@ stream_mode(Bucket, Delay, Con) ->
             E
     end.
 
+%%--------------------------------------------------------------------
+%% @doc Starts a batch transfair for a given timeslot, once started
+%% Additional metrics with the same time can be send via the
+%% {@link batch/2} and {@link batch/3} functions.
+%%
+%% @end
+%%--------------------------------------------------------------------
 -spec batch_start(Time :: non_neg_integer(), Connection :: connection()) ->
                          {ok, Connection :: connection()} |
                          {error, {batch, Time :: non_neg_integer()},
@@ -201,9 +209,36 @@ batch_start(Time, Con) when
             E
     end.
 
+%%--------------------------------------------------------------------
+%% @doc Sends a batch of multiple values with a single tcp call.
+%% @end
+%%--------------------------------------------------------------------
+-spec batch([{Metric :: binary() | [binary()], Point :: integer() | binary()}],
+             Connection :: connection()) ->
+                   {ok, Connection :: connection()} |
+                   {error, Error :: inet:posix(), Connection :: connection()} |
+                   {error, no_batch, Connection :: connection()}.
+batch(MPs, Con = #ddb_connection{batch = _Time})
+  when is_integer(_Time),
+       is_list(MPs) ->
+    Bin = << <<(to_batch(Metric, Point))/binary>> || {Metric, Point} <- MPs >>,
+    case send_bin(Bin, Con) of
+        {ok, Con1} ->
+            {ok, Con1};
+        E ->
+            E
+    end;
+
+batch(_MPs, Con) ->
+    {error, no_batch, Con}.
+
+%%--------------------------------------------------------------------
+%% @doc Sends a single metric value pair for a batch
+%% @end
+%%--------------------------------------------------------------------
 -spec batch(Metric :: binary() | [binary()],
-           Point :: integer() | binary(),
-           Connection :: connection()) ->
+            Point :: integer() | binary(),
+            Connection :: connection()) ->
                   {ok, Connection :: connection()} |
                   {error, Error :: inet:posix(), Connection :: connection()} |
                   {error, no_batch, Connection :: connection()}.
@@ -231,6 +266,10 @@ batch(_Metric, _Point, Con) ->
     {error, no_batch, Con}.
 
 
+%%--------------------------------------------------------------------
+%% @doc Finalizes the batch trainsfair
+%% @end
+%%--------------------------------------------------------------------
 -spec batch_end(Connection :: connection()) ->
                        {error, Error :: inet:posix(),
                         Connection :: connection()} |
@@ -448,3 +487,14 @@ do_list({ok, Con1 = #ddb_connection{socket = S}}) ->
 
 do_list(Error) ->
     Error.
+
+to_batch(Metric, Point) when is_integer(Point) ->
+    to_batch(Metric, mmath_bin:from_list([Point]));
+
+to_batch([_M | _] = Metric, Point) when is_binary(_M) ->
+    to_batch(dproto:metric_from_list(Metric), Point);
+
+to_batch(Metric, Point)
+  when is_binary(Metric),
+       is_binary(Point) ->
+    dproto_tcp:encode({batch, Metric, Point}).
