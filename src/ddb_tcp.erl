@@ -34,6 +34,7 @@
          stream_mode/3,
          list/1,
          list/2,
+         list/3,
          get/5,
          send/4,
          batch_start/2,
@@ -295,7 +296,7 @@ batch_end(Con) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
-    -spec list(Connection :: connection()) ->
+-spec list(Connection :: connection()) ->
                   {ok, [Bucket :: binary()], Connection :: connection()} |
                   {error, stream, Connection :: connection()}.
 
@@ -319,6 +320,22 @@ list(Bucket, Con =  #ddb_connection{mode = normal}) ->
     do_list(send_bin(dproto_tcp:encode({list, Bucket}), Con));
 
 list(_Bucket, Con) ->
+    {error, stream, Con}.
+
+%%--------------------------------------------------------------------
+%% @doc Retrives a list fo all metrics with a given prefix. Returns an
+%% error when in stream mode.
+%%
+%% @end
+%%--------------------------------------------------------------------
+-spec list(Bucket :: binary(), Prefix :: binary(),Connection :: connection()) ->
+                  {ok, [Metric :: binary()], Connection :: connection()} |
+                  {error, stream, Connection :: connection()}.
+
+list(Bucket, Prefix, Con =  #ddb_connection{mode = normal}) ->
+    do_list(send_bin(dproto_tcp:encode({list, Bucket, Prefix}), Con));
+
+list(_Bucket, _Prefix, Con) ->
     {error, stream, Con}.
 
 %%--------------------------------------------------------------------
