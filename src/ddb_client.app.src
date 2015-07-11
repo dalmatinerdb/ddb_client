@@ -1,12 +1,16 @@
 {application, ddb_client,
  [
   {description, "DalmatinerDB client"},
-  {vsn, "0.1.5"},
+  {vsn, "0.1.6"},
   {registered, []},
   {applications, [
                   kernel,
-                  stdlib
+                  stdlib,
+                  mmath,
+                  dproto
                  ]},
-  %{mod, { ddb_client_app, []}},
-  {env, []}
+  {env, []},
+  {contributors, ["Heinz N. Gies"]},
+  {licenses, ["MIT"]},
+  {links, [{"Github", "https://github.com/dalmatienrdb/dproto"}]}
  ]}.
