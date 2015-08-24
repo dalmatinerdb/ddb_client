@@ -462,7 +462,7 @@ reset_stream(Con = #ddb_connection{socket = _S,
     Bin = dproto_tcp:encode({stream, Bucket, Delay}),
     case send_bin(Bin, Con) of
         {ok, Con1} ->
-            reset_batch(Con1);
+            reset_batch(reset_state(Con1));
         E ->
             E
     end;
@@ -474,12 +474,12 @@ reset_batch(Con = #ddb_connection{batch = Time}) when is_integer(Time) ->
     Bin = dproto_tcp:encode({batch, Time}),
     case send_bin(Bin, Con) of
         {ok, Con1} ->
-            reset_state(Con1);
+            Con1;
         E ->
             E
     end;
 reset_batch(Con) ->
-    reset_state(Con).
+    Con.
 
 reset_state(Con = #ddb_connection{socket = Socket, mode = stream})
   when Socket /= undefined ->
