@@ -1,10 +1,10 @@
 {application,ddb_client,
              [{description,"DalmatinerDB client"},
-              {vsn,"0.1.14"},
+              {vsn,"0.1.15"},
               {registered,[]},
               {applications,[kernel,stdlib,mmath,dproto]},
               {env,[]},
               {contributors,["Heinz N. Gies"]},
               {licenses,["MIT"]},
               {links,[{"Github",
-                       "https://github.com/dalmatienrdb/ddb_client"}]}]}.
+                       "https://github.com/dalmatinerdb/ddb_client"}]}]}.
