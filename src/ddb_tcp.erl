@@ -81,7 +81,7 @@
                      {ok, connection()}.
 
 connect(Host, Port) ->
-    case gen_tcp:connect(Host, Port, ?OPTS) of
+    case gen_tcp:connect(Host, Port, ?OPTS, 500) of
         {ok, Socket} ->
             {ok, #ddb_connection{
                     socket = Socket,
@@ -445,7 +445,7 @@ send1(Bin, Con = #ddb_connection{socket = Sock}) ->
 reconnect(Con = #ddb_connection{socket = undefined,
                                 host = Host,
                                 port = Port}) ->
-    case gen_tcp:connect(Host, Port, ?OPTS) of
+    case gen_tcp:connect(Host, Port, ?OPTS, 500) of
         {ok, Socket} ->
             reset_stream(Con#ddb_connection{socket = Socket, error = none});
         {error, E} ->
