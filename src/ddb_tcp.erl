@@ -9,13 +9,13 @@
 %%% required information stored. It also contens a gen_tco connection
 %%% so the same limits of ownership apply here.
 %%%
-%%% The connection is not guarantted to be alive at all the time and
-%%% in the case of a failure will be tried to be reestablished before
-%%% forwarding the error to the caller.
+%%% The connection is not guaranteed to be alive all the time.
+%%% In the case of a failure an attempt will be made to reestablish the
+%%% connection before forwarding the error to the caller.
 %%%
 %%% Once entering the stream mode by calling {@link stream/2} only
 %%% the send command is supported, other commands will cause an error,
-%%% however not disconect the system.
+%%% however not disconnect the system.
 %%%
 %%% @end
 %%% Created : 15 Dec 2014 by Heinz Nikolaus Gies <heinz@licenser.net>
@@ -69,8 +69,8 @@
 
 %%--------------------------------------------------------------------
 %% @doc Connects to a DalmatinerDB instance. It will try to create a
-%% gen_tcp connection however it will return successfully even if that
-%% could not be established!
+%% gen_tcp connection however it will return successfully even if the
+%% gen_tcp connection could not be established!
 %%
 %% To test for connection use {@link connected/1}.
 %%
@@ -128,8 +128,8 @@ mode(#ddb_connection{mode = normal}) ->
     {ok, normal}.
 
 %%--------------------------------------------------------------------
-%% @doc Shows weather a connection is currently connected to the kback
-%% backend or awaiting reconncet.
+%% @doc Shows whether a connection is currently connected to the backend or
+%% awaiting reconnect.
 %%
 %% @end
 %%--------------------------------------------------------------------
@@ -142,9 +142,9 @@ connected(_) ->
     true.
 
 %%--------------------------------------------------------------------
-%% @doc Puts a connection into stream mode, if the connection was in
-%% stream mode before an error is returned unless the requested stream
-%% parameters are equal to the current ones.
+%% @doc Puts a connection into stream mode.  If the connection is already in
+%% stream mode, an error is returned unless the requested stream parameters
+%% are equal to the current ones.
 %%
 %% @end
 %%--------------------------------------------------------------------
@@ -180,8 +180,8 @@ stream_mode(Bucket, Delay, Con) ->
     end.
 
 %%--------------------------------------------------------------------
-%% @doc Starts a batch transfair for a given timeslot, once started
-%% Additional metrics with the same time can be send via the
+%% @doc Starts a batch transfer for a given timeslot.
+%% Once started, additional metrics with the same time can be sent via the
 %% {@link batch/2} and {@link batch/3} functions.
 %%
 %% @end
@@ -268,7 +268,7 @@ batch(_Metric, _Point, Con) ->
 
 
 %%--------------------------------------------------------------------
-%% @doc Finalizes the batch trainsfair
+%% @doc Finalizes the batch transfer.
 %% @end
 %%--------------------------------------------------------------------
 -spec batch_end(Connection :: connection()) ->
@@ -291,7 +291,7 @@ batch_end(Con) ->
 
 
 %%--------------------------------------------------------------------
-%% @doc Retrives a list fo all buckets on the srever. Returns an error
+%% @doc Retrieves a list of all buckets on the server. Returns an error
 %% when in stream mode.
 %%
 %% @end
@@ -307,7 +307,7 @@ list(Con) ->
     {error, stream, Con}.
 
 %%--------------------------------------------------------------------
-%% @doc Retrives a list fo all metrics in a bucket. Returns an error
+%% @doc Retrieves a list of all metrics in a bucket. Returns an error
 %% when in stream mode.
 %%
 %% @end
@@ -323,12 +323,12 @@ list(_Bucket, Con) ->
     {error, stream, Con}.
 
 %%--------------------------------------------------------------------
-%% @doc Retrives a list fo all metrics with a given prefix. Returns an
+%% @doc Retrieves a list of all metrics with a given prefix. Returns an
 %% error when in stream mode.
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec list(Bucket :: binary(), Prefix :: binary(),Connection :: connection()) ->
+-spec list(Bucket :: binary(), Prefix :: binary(), Connection :: connection()) ->
                   {ok, [Metric :: binary()], Connection :: connection()} |
                   {error, stream, Connection :: connection()}.
 
@@ -339,8 +339,8 @@ list(_Bucket, _Prefix, Con) ->
     {error, stream, Con}.
 
 %%--------------------------------------------------------------------
-%% @doc Retrives a range of data from a metric or an error when in
-%% stream mode.
+%% @doc Retrieves a range of data from a metric. Returns an error when
+%% in stream mode.
 %%
 %% @end
 %%--------------------------------------------------------------------
@@ -373,7 +373,7 @@ get(_, _, _, _, Con) ->
 
 %%--------------------------------------------------------------------
 %% @doc Sends data to the server on streaming mode. Returns an error
-%% when in stream mode.
+%% when in batch mode.
 %%
 %% @end
 %%--------------------------------------------------------------------
@@ -390,7 +390,7 @@ send([_M | _] = Metric, Time, Points, Con =  #ddb_connection{mode = stream})
   when is_binary(_M) ->
     send(dproto:metric_from_list(Metric), Time, Points, Con);
 
-send(_, _, _, Con =#ddb_connection{batch = Time}) when is_integer(Time) ->
+send(_, _, _, Con = #ddb_connection{batch = Time}) when is_integer(Time) ->
     {error, {batch, Time}, Con};
 
 send(Metric, Time, Points, Con = #ddb_connection{mode = stream}) ->
@@ -400,7 +400,7 @@ send(_, _, _, Con) ->
     {error, no_stream, Con}.
 
 %%--------------------------------------------------------------------
-%% @doc Forces to close a conneciton.
+%% @doc Forces a connection to close.
 %%
 %% @end
 %%--------------------------------------------------------------------
@@ -429,6 +429,7 @@ send_bin(Bin, Con = #ddb_connection{socket = Sock}) ->
         _ ->
             {ok, Con}
     end.
+
 send1(_Bin, Con = #ddb_connection{socket = undefined, error = E}) ->
     {error, E, Con};
 
@@ -478,6 +479,7 @@ reset_batch(Con = #ddb_connection{batch = Time}) when is_integer(Time) ->
         E ->
             E
     end;
+
 reset_batch(Con) ->
     Con.
 
@@ -485,6 +487,7 @@ reset_state(Con = #ddb_connection{socket = Socket, mode = stream})
   when Socket /= undefined ->
     inet:setopts(Socket, [{packet, 0}]),
     Con;
+
 reset_state(Con) ->
     Con.
 
