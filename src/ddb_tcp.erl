@@ -32,6 +32,7 @@
          connected/1,
          close/1,
          stream_mode/3,
+         resolution/2,
          list/1,
          list/2,
          list/3,
@@ -289,6 +290,30 @@ batch_end(Con) ->
     Con1 = Con#ddb_connection{batch = false},
     {ok, Con1}.
 
+%%--------------------------------------------------------------------
+%% @doc Reads the resolution of a bucket.
+%%
+%% @end
+%%--------------------------------------------------------------------
+-spec resolution(Bucket :: binary(), Connection :: connection()) ->
+                  {ok, pos_integer(), Connection :: connection()} |
+                  {error, stream, Connection :: connection()}.
+
+resolution(Bucket, Con =  #ddb_connection{mode = normal}) ->
+    case send_bin(dproto_tcp:encode({resolution, Bucket}), Con) of
+        {ok, Con1 = #ddb_connection{socket = Socket}} ->
+            case gen_tcp:recv(Socket, 0, ?TIMEOUT) of
+                {ok, <<Resolution:64/integer>>} ->
+                    {ok, Resolution, Con1};
+                {error, E} ->
+                    {error, E, close(Con1)}
+            end;
+        E ->
+            E
+    end;
+
+resolution(_Bucket, Con) ->
+    {error, stream, Con}.
 
 %%--------------------------------------------------------------------
 %% @doc Retrives a list fo all buckets on the srever. Returns an error
