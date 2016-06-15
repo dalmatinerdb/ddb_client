@@ -32,7 +32,7 @@
          connected/1,
          close/1,
          stream_mode/3,
-         resolution/2,
+         bucket_info/2,
          list/1,
          list/2,
          list/3,
@@ -47,6 +47,8 @@
 -export_type([connection/0]).
 
 -type socket() :: port().
+
+-type ttl() :: pos_integer() | infinity.
 
 -record(ddb_connection,
         {socket :: socket() | undefined,
@@ -291,20 +293,21 @@ batch_end(Con) ->
     {ok, Con1}.
 
 %%--------------------------------------------------------------------
-%% @doc Reads the resolution of a bucket.
+%% @doc Reads the metadata properties of a bucket.
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec resolution(Bucket :: binary(), Connection :: connection()) ->
-                  {ok, pos_integer(), Connection :: connection()} |
+-spec bucket_info(Bucket :: binary(), Connection :: connection()) ->
+                  {ok, {Res :: pos_integer(), PPF :: pos_integer(),
+                        TTL :: ttl()}, Connection :: connection()} |
                   {error, stream, Connection :: connection()}.
 
-resolution(Bucket, Con =  #ddb_connection{mode = normal}) ->
-    case send_bin(dproto_tcp:encode({resolution, Bucket}), Con) of
+bucket_info(Bucket, Con =  #ddb_connection{mode = normal}) ->
+    case send_bin(dproto_tcp:encode({info, Bucket}), Con) of
         {ok, Con1 = #ddb_connection{socket = Socket}} ->
             case gen_tcp:recv(Socket, 0, ?TIMEOUT) of
-                {ok, <<Resolution:64/integer>>} ->
-                    {ok, Resolution, Con1};
+                {ok, InfoBin} ->
+                    {ok, dproto_tcp:decode_bucket_info(InfoBin), Con1};
                 {error, E} ->
                     {error, E, close(Con1)}
             end;
@@ -312,7 +315,7 @@ resolution(Bucket, Con =  #ddb_connection{mode = normal}) ->
             E
     end;
 
-resolution(_Bucket, Con) ->
+bucket_info(_Bucket, Con) ->
     {error, stream, Con}.
 
 %%--------------------------------------------------------------------
