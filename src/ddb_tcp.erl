@@ -32,11 +32,12 @@
          connected/1,
          close/1,
          stream_mode/3,
-         resolution/2,
+         bucket_info/2,
          list/1,
          list/2,
          list/3,
          get/5,
+         set_ttl/3,
          send/4,
          batch_start/2,
          batch/2,
@@ -44,9 +45,17 @@
          batch_end/1
         ]).
 
+-ignore_xref([batch/2, batch/3, batch_start/2, batch_end/1,
+              batch_start/2, bucket_info/2, close/1,
+              connect/1, connect/2, connected/1, get/5,
+              list/1, list/2, list/3, mode/1, send/4,
+              set_ttl/3, stream_mode/3]).
+
 -export_type([connection/0]).
 
 -type socket() :: port().
+
+-type ttl() :: pos_integer() | infinity.
 
 -record(ddb_connection,
         {socket :: socket() | undefined,
@@ -163,6 +172,7 @@ stream_mode(Bucket, Delay, Con = #ddb_connection{mode = stream,
                                                  bucket = Bucket,
                                                  delay = Delay}) ->
     {ok, Con};
+
 stream_mode(_Bucket, _Delay, Con = #ddb_connection{mode = stream,
                                                    bucket = OldBucket,
                                                    delay = OldDelay}) ->
@@ -291,20 +301,21 @@ batch_end(Con) ->
     {ok, Con1}.
 
 %%--------------------------------------------------------------------
-%% @doc Reads the resolution of a bucket.
+%% @doc Reads the metadata properties of a bucket.
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec resolution(Bucket :: binary(), Connection :: connection()) ->
-                  {ok, pos_integer(), Connection :: connection()} |
+-spec bucket_info(Bucket :: binary(), Connection :: connection()) ->
+                  {ok, {Res :: pos_integer(), PPF :: pos_integer(),
+                        TTL :: ttl()}, Connection :: connection()} |
                   {error, stream, Connection :: connection()}.
 
-resolution(Bucket, Con =  #ddb_connection{mode = normal}) ->
-    case send_bin(dproto_tcp:encode({resolution, Bucket}), Con) of
+bucket_info(Bucket, Con =  #ddb_connection{mode = normal}) ->
+    case send_bin(dproto_tcp:encode({info, Bucket}), Con) of
         {ok, Con1 = #ddb_connection{socket = Socket}} ->
             case gen_tcp:recv(Socket, 0, ?TIMEOUT) of
-                {ok, <<Resolution:64/integer>>} ->
-                    {ok, Resolution, Con1};
+                {ok, InfoBin} ->
+                    {ok, dproto_tcp:decode_bucket_info(InfoBin), Con1};
                 {error, E} ->
                     {error, E, close(Con1)}
             end;
@@ -312,7 +323,7 @@ resolution(Bucket, Con =  #ddb_connection{mode = normal}) ->
             E
     end;
 
-resolution(_Bucket, Con) ->
+bucket_info(_Bucket, Con) ->
     {error, stream, Con}.
 
 %%--------------------------------------------------------------------
@@ -353,7 +364,8 @@ list(_Bucket, Con) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec list(Bucket :: binary(), Prefix :: binary(), Connection :: connection()) ->
+-spec list(Bucket :: binary(), Prefix :: binary(),
+           Connection :: connection()) ->
                   {ok, [Metric :: binary()], Connection :: connection()} |
                   {error, stream, Connection :: connection()}.
 
@@ -395,6 +407,35 @@ get(Bucket, Metric, Time, Count, Con =  #ddb_connection{mode = normal}) ->
 
 get(_, _, _, _, Con) ->
     {error, stream, Con}.
+
+%%--------------------------------------------------------------------
+%% @doc Sets the TTL (expiry) for a given bucket.  This defines the length
+%% of time for which data points are stored before remove by the vacuum.  A
+%% value of `infinity' means data is retained indefinitely.
+%% The TTL for a bucket may also be set via the ddb admin console.
+%%
+%% @end
+%%--------------------------------------------------------------------
+-spec set_ttl(Bucket :: binary(), TTL :: ttl(), Connection :: connection()) ->
+                {error, Error :: inet:posix(), Connection :: connection()} |
+                {error, {bad_ttl, TTL :: ttl()}, Connection :: connection()} |
+                {error, {bad_mode, stream}, Connection :: connection()} |
+                {ok, Connection :: connection()}.
+
+set_ttl(_Bucket, _TTL, Con = #ddb_connection{mode = stream}) ->
+    {error, {bad_mode, stream}, Con};
+set_ttl(_Bucket, TTL, Con) when
+      is_integer(TTL), TTL =< 0 ->
+    {error, {bad_ttl, TTL}, Con};
+set_ttl(Bucket, TTL, Con) when
+      is_integer(TTL);TTL =:= infinity ->
+    Bin = dproto_tcp:encode({ttl, Bucket, TTL}),
+    case send_bin(Bin, Con) of
+        {ok, Con1} ->
+            {ok, Con1};
+        E ->
+            E
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc Sends data to the server on streaming mode. Returns an error
