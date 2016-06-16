@@ -37,12 +37,19 @@
          list/2,
          list/3,
          get/5,
+         set_ttl/3,
          send/4,
          batch_start/2,
          batch/2,
          batch/3,
          batch_end/1
         ]).
+
+-ignore_xref([batch/2, batch/3, batch_start/2, batch_end/1,
+              batch_start/2, bucket_info/2, close/1,
+              connect/1, connect/2, connected/1, get/5,
+              list/1, list/2, list/3, mode/1, send/4,
+              set_ttl/3, stream_mode/3]).
 
 -export_type([connection/0]).
 
@@ -165,6 +172,7 @@ stream_mode(Bucket, Delay, Con = #ddb_connection{mode = stream,
                                                  bucket = Bucket,
                                                  delay = Delay}) ->
     {ok, Con};
+
 stream_mode(_Bucket, _Delay, Con = #ddb_connection{mode = stream,
                                                    bucket = OldBucket,
                                                    delay = OldDelay}) ->
@@ -398,6 +406,35 @@ get(Bucket, Metric, Time, Count, Con =  #ddb_connection{mode = normal}) ->
 
 get(_, _, _, _, Con) ->
     {error, stream, Con}.
+
+%%--------------------------------------------------------------------
+%% @doc Sets the TTL (expiry) for a given bucket.  This defines the length
+%% of time for which data points are stored before remove by the vacuum.  A
+%% value of `infinity' means data is retained indefinitely.
+%% The TTL for a bucket may also be set via the ddb admin console.
+%%
+%% @end
+%%--------------------------------------------------------------------
+-spec set_ttl(Bucket :: binary(), TTL :: ttl(), Connection :: connection()) ->
+                {error, Error :: inet:posix(), Connection :: connection()} |
+                {error, {bad_ttl, TTL :: ttl()}, Connection :: connection()} |
+                {error, {bad_mode, stream}, Connection :: connection()} |
+                {ok, Connection :: connection()}.
+
+set_ttl(_Bucket, _TTL, Con = #ddb_connection{mode = stream}) ->
+    {error, {bad_mode, stream}, Con};
+set_ttl(_Bucket, TTL, Con) when
+      is_integer(TTL),TTL =< 0 ->
+    {error, {bad_ttl, TTL}, Con};
+set_ttl(Bucket, TTL, Con) when
+      is_integer(TTL);TTL =:= infinity ->
+    Bin = dproto_tcp:encode({ttl, Bucket, TTL}),
+    case send_bin(Bin, Con) of
+        {ok, Con1} ->
+            {ok, Con1};
+        E ->
+            E
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc Sends data to the server on streaming mode. Returns an error
