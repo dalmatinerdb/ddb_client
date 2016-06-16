@@ -364,7 +364,8 @@ list(_Bucket, Con) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec list(Bucket :: binary(), Prefix :: binary(), Connection :: connection()) ->
+-spec list(Bucket :: binary(), Prefix :: binary(),
+           Connection :: connection()) ->
                   {ok, [Metric :: binary()], Connection :: connection()} |
                   {error, stream, Connection :: connection()}.
 
@@ -424,7 +425,7 @@ get(_, _, _, _, Con) ->
 set_ttl(_Bucket, _TTL, Con = #ddb_connection{mode = stream}) ->
     {error, {bad_mode, stream}, Con};
 set_ttl(_Bucket, TTL, Con) when
-      is_integer(TTL),TTL =< 0 ->
+      is_integer(TTL), TTL =< 0 ->
     {error, {bad_ttl, TTL}, Con};
 set_ttl(Bucket, TTL, Con) when
       is_integer(TTL);TTL =:= infinity ->
