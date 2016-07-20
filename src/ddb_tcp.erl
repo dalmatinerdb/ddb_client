@@ -6,11 +6,11 @@
 %%% does support the streaming send mode for TCP.
 %%%
 %%% The {@link connect/2} call will return a new connection with the
-%%% required information stored. It also contens a gen_tco connection
+%%% required information stored. It also contains a gen_tcp connection
 %%% so the same limits of ownership apply here.
 %%%
 %%% The connection is not guaranteed to be alive all the time.
-%%% In the case of a failure an attempt will be made to reestablish the
+%%% In the case of a failure an attempt will be made to re-establish the
 %%% connection before forwarding the error to the caller.
 %%%
 %%% Once entering the stream mode by calling {@link stream/2} only
@@ -32,6 +32,7 @@
          connected/1,
          close/1,
          stream_mode/3,
+         stream_mode/4,
          bucket_info/2,
          list/1,
          list/2,
@@ -49,7 +50,7 @@
               batch_start/2, bucket_info/2, close/1,
               connect/1, connect/2, connected/1, get/5,
               list/1, list/2, list/3, mode/1, send/4,
-              set_ttl/3, stream_mode/3]).
+              set_ttl/3, stream_mode/3, stream_mode/4]).
 
 -export_type([connection/0]).
 
@@ -63,6 +64,7 @@
          port,
          mode = normal,
          bucket,
+         resolution :: pos_integer(),
          error = none,
          delay = 1,
          batch = false}).
@@ -182,6 +184,44 @@ stream_mode(Bucket, Delay, Con) ->
     Bin = dproto_tcp:encode({stream, Bucket, Delay}),
     Con1 = Con#ddb_connection{mode = stream,
                               bucket = Bucket,
+                              delay = Delay},
+    case send_bin(Bin, Con1) of
+        {ok, Con2} ->
+            {ok, reset_state(Con2)};
+        E ->
+            E
+    end.
+
+-spec stream_mode(Bucket :: binary(),
+                  Delay :: pos_integer(),
+                  Resolution :: pos_integer(),
+                  Connection :: connection()) ->
+                         {ok, Connection :: connection()} |
+                         {error, Error :: inet:posix(),
+                          Connection :: connection()} |
+                         {error, {stream, OldBucket :: binary(),
+                                  OldDelay :: pos_integer(),
+                                  OldRes :: pos_integer()},
+                          Connection :: connection()}.
+
+stream_mode(Bucket, Delay, Res, Con = #ddb_connection{mode = stream,
+                                                      bucket = Bucket,
+                                                      delay = Delay,
+                                                      resolution = Res}) ->
+    {ok, Con};
+
+stream_mode(_Bucket, _Delay, _Res, Con = #ddb_connection{mode = stream,
+                                                         resolution = OldRes,
+                                                         bucket = OldBucket,
+                                                         delay = OldDelay}) ->
+    {error, {stream, OldBucket, OldDelay, OldRes}, Con};
+
+
+stream_mode(Bucket, Delay, Res, Con) ->
+    Bin = dproto_tcp:encode({stream, Bucket, Delay, Res}),
+    Con1 = Con#ddb_connection{mode = stream,
+                              bucket = Bucket,
+                              resolution = Res,
                               delay = Delay},
     case send_bin(Bin, Con1) of
         {ok, Con2} ->
