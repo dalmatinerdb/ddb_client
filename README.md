@@ -27,7 +27,7 @@ Bucket = <<"my_bucket">>.
 Metric = <<2, "my", 6, "metric">>.
 Points = lists:seq(1, 10).
 PointsBinary = mmath_bin:from_list(Points).
-{ok, SCon1} = ddb_tcp:send(Metric, Timestamp, PointsB, SCon).
+{ok, SCon1} = ddb_tcp:send(Metric, Timestamp, PointsBinary, SCon).
 ```
 
 A stream connection is not required in order to perform read operations.  In
