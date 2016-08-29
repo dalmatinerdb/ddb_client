@@ -2,7 +2,7 @@
              [{description,"DalmatinerDB client"},
               {vsn,"0.1.26"},
               {registered,[]},
-              {applications,[kernel,stdlib,mmath,dproto]},
+              {applications,[kernel,stdlib,mmath,dproto, snappy]},
               {env,[]},
               {maintainers,["Heinz N. Gies"]},
               {licenses,["MIT"]},

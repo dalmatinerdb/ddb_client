@@ -421,6 +421,22 @@ list(_Bucket, _Prefix, Con) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
+
+do_get(Con = #ddb_connection{socket = Socket}, Acc) ->
+    case gen_tcp:recv(Socket, 0, ?TIMEOUT) of
+        {ok, <<0>>} ->
+            {ok, Acc, Con};
+        {ok, <<1, Compressed/binary>>} ->
+            {ok, Data} = snappy:decompress(Compressed),
+            do_get(Con, <<Acc/binary, Data/binary>>);
+        {ok, <<2, Padding:64/integer, Compressed/binary>>} ->
+            {ok, Data} = snappy:decompress(Compressed),
+            do_get(Con, <<Acc/binary, Data/binary,
+                          (mmath:empth(Padding))/binary>>);
+        {error, E} ->
+            {error, E, close(Con)}
+    end.
+
 -spec get(Bucket :: binary(),
           Metric :: binary(),
           Time :: pos_integer(),
@@ -434,13 +450,8 @@ list(_Bucket, _Prefix, Con) ->
 
 get(Bucket, Metric, Time, Count, Con =  #ddb_connection{mode = normal}) ->
     case send_bin(dproto_tcp:encode({get, Bucket, Metric, Time, Count}), Con) of
-        {ok, Con1 = #ddb_connection{socket = Socket}} ->
-            case gen_tcp:recv(Socket, 0, ?TIMEOUT) of
-                {ok, <<Resolution:64/integer, D/binary>>} ->
-                    {ok, {Resolution, D}, Con1};
-                {error, E} ->
-                    {error, E, close(Con1)}
-            end;
+        {ok, Con1} ->
+            do_get(Con1, <<>>);
         E ->
             E
     end;
