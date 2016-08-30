@@ -432,7 +432,7 @@ do_get(Con = #ddb_connection{socket = Socket}, Acc) ->
         {ok, <<2, Padding:64/integer, Compressed/binary>>} ->
             {ok, Data} = snappy:decompress(Compressed),
             do_get(Con, <<Acc/binary, Data/binary,
-                          (mmath:empth(Padding))/binary>>);
+                          (mmath_bin:empty(Padding))/binary>>);
         {error, E} ->
             {error, E, close(Con)}
     end.
