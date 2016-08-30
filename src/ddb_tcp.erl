@@ -442,9 +442,7 @@ do_get(Con = #ddb_connection{socket = Socket}, Acc) ->
           Time :: pos_integer(),
           Count :: pos_integer(),
           Connection :: connection()) ->
-                 {ok, {Resolution :: pos_integer(),
-                       Data :: binary()},
-                  Connection :: connection()} |
+                 {ok, Data :: binary(), Connection :: connection()} |
                  {error, Error :: inet:posix(), Connection :: connection()} |
                  {error, stream, Connection :: connection()}.
 
