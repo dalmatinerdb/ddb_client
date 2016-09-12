@@ -46,6 +46,11 @@
          batch_end/1
         ]).
 
+-export([
+         events/3,
+         read_events/4
+        ]).
+
 -ignore_xref([batch/2, batch/3, batch_start/2, batch_end/1,
               batch_start/2, bucket_info/2, close/1,
               connect/1, connect/2, connected/1, get/5,
@@ -68,6 +73,11 @@
          error = none,
          delay = 1,
          batch = false}).
+
+-type errors() ::
+        {error, Error :: inet:posix(), Connection :: connection()} |
+        {error, {bad_ttl, TTL :: ttl()}, Connection :: connection()} |
+        {error, {bad_mode, stream}, Connection :: connection()}.
 
 %%--------------------------------------------------------------------
 %% @type connection().
@@ -181,11 +191,10 @@ stream_mode(_Bucket, _Delay, Con = #ddb_connection{mode = stream,
     {error, {stream, OldBucket, OldDelay}, Con};
 
 stream_mode(Bucket, Delay, Con) ->
-    Bin = dproto_tcp:encode({stream, Bucket, Delay}),
     Con1 = Con#ddb_connection{mode = stream,
                               bucket = Bucket,
                               delay = Delay},
-    case send_bin(Bin, Con1) of
+    case send_msg({stream, Bucket, Delay}, Con1) of
         {ok, Con2} ->
             {ok, reset_state(Con2)};
         E ->
@@ -218,12 +227,11 @@ stream_mode(_Bucket, _Delay, _Res, Con = #ddb_connection{mode = stream,
 
 
 stream_mode(Bucket, Delay, Res, Con) ->
-    Bin = dproto_tcp:encode({stream, Bucket, Delay, Res}),
     Con1 = Con#ddb_connection{mode = stream,
                               bucket = Bucket,
                               resolution = Res,
                               delay = Delay},
-    case send_bin(Bin, Con1) of
+    case send_msg({stream, Bucket, Delay, Res}, Con1) of
         {ok, Con2} ->
             {ok, reset_state(Con2)};
         E ->
@@ -253,8 +261,7 @@ batch_start(Time, Con) when
       is_integer(Time),
       Time >= 0 ->
     Con1 = Con#ddb_connection{batch = Time},
-    Bin = dproto_tcp:encode({batch, Time}),
-    case send_bin(Bin, Con1) of
+    case send_msg({batch, Time}, Con1) of
         {ok, Con2} ->
             {ok, Con2};
         E ->
@@ -266,7 +273,7 @@ batch_start(Time, Con) when
 %% @end
 %%--------------------------------------------------------------------
 -spec batch([{Metric :: binary() | [binary()], Point :: integer() | binary()}],
-             Connection :: connection()) ->
+            Connection :: connection()) ->
                    {ok, Connection :: connection()} |
                    {error, Error :: inet:posix(), Connection :: connection()} |
                    {error, no_batch, Connection :: connection()}.
@@ -291,9 +298,9 @@ batch(_MPs, Con) ->
 -spec batch(Metric :: binary() | [binary()],
             Point :: integer() | binary(),
             Connection :: connection()) ->
-                  {ok, Connection :: connection()} |
-                  {error, Error :: inet:posix(), Connection :: connection()} |
-                  {error, no_batch, Connection :: connection()}.
+                   {ok, Connection :: connection()} |
+                   {error, Error :: inet:posix(), Connection :: connection()} |
+                   {error, no_batch, Connection :: connection()}.
 
 
 
@@ -307,8 +314,7 @@ batch(Metric, Point, Con = #ddb_connection{batch = _Time})
   when is_binary(Metric),
        is_binary(Point),
        is_integer(_Time) ->
-    Bin = dproto_tcp:encode({batch, Metric, Point}),
-    case send_bin(Bin, Con) of
+    case send_msg({batch, Metric, Point}, Con) of
         {ok, Con1} ->
             {ok, Con1};
         E ->
@@ -329,8 +335,7 @@ batch(_Metric, _Point, Con) ->
 
 batch_end(Con = #ddb_connection{batch = _Time}) when is_integer(_Time) ->
     Con1 = Con#ddb_connection{batch = false},
-    Bin = dproto_tcp:encode(batch_end),
-    case send_bin(Bin, Con1) of
+    case send_msg(batch_end, Con1) of
         {ok, Con2} ->
             {ok, Con2};
         E ->
@@ -346,12 +351,12 @@ batch_end(Con) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec bucket_info(Bucket :: binary(), Connection :: connection()) ->
-                  {ok, {Res :: pos_integer(), PPF :: pos_integer(),
-                        TTL :: ttl()}, Connection :: connection()} |
-                  {error, stream, Connection :: connection()}.
+                         {ok, {Res :: pos_integer(), PPF :: pos_integer(),
+                               TTL :: ttl()}, Connection :: connection()} |
+                         {error, stream, Connection :: connection()}.
 
 bucket_info(Bucket, Con =  #ddb_connection{mode = normal}) ->
-    case send_bin(dproto_tcp:encode({info, Bucket}), Con) of
+    case send_msg({info, Bucket}, Con) of
         {ok, Con1 = #ddb_connection{socket = Socket}} ->
             case gen_tcp:recv(Socket, 0, ?TIMEOUT) of
                 {ok, InfoBin} ->
@@ -377,7 +382,7 @@ bucket_info(_Bucket, Con) ->
                   {error, stream, Connection :: connection()}.
 
 list(Con =  #ddb_connection{mode = normal}) ->
-    do_list(send_bin(dproto_tcp:encode(buckets), Con));
+    do_list(send_msg(buckets, Con));
 
 list(Con) ->
     {error, stream, Con}.
@@ -393,7 +398,7 @@ list(Con) ->
                   {error, stream, Connection :: connection()}.
 
 list(Bucket, Con =  #ddb_connection{mode = normal}) ->
-    do_list(send_bin(dproto_tcp:encode({list, Bucket}), Con));
+    do_list(send_msg({list, Bucket}, Con));
 
 list(_Bucket, Con) ->
     {error, stream, Con}.
@@ -410,7 +415,7 @@ list(_Bucket, Con) ->
                   {error, stream, Connection :: connection()}.
 
 list(Bucket, Prefix, Con =  #ddb_connection{mode = normal}) ->
-    do_list(send_bin(dproto_tcp:encode({list, Bucket, Prefix}), Con));
+    do_list(send_msg({list, Bucket, Prefix}, Con));
 
 list(_Bucket, _Prefix, Con) ->
     {error, stream, Con}.
@@ -422,21 +427,6 @@ list(_Bucket, _Prefix, Con) ->
 %% @end
 %%--------------------------------------------------------------------
 
-do_get(Con = #ddb_connection{socket = Socket}, Acc) ->
-    case gen_tcp:recv(Socket, 0, ?TIMEOUT) of
-        {ok, <<0>>} ->
-            {ok, Acc, Con};
-        {ok, <<1, Compressed/binary>>} ->
-            {ok, Data} = snappy:decompress(Compressed),
-            do_get(Con, <<Acc/binary, Data/binary>>);
-        {ok, <<2, Padding:64/integer, Compressed/binary>>} ->
-            {ok, Data} = snappy:decompress(Compressed),
-            do_get(Con, <<Acc/binary, Data/binary,
-                          (mmath_bin:empty(Padding))/binary>>);
-        {error, E} ->
-            {error, E, close(Con)}
-    end.
-
 -spec get(Bucket :: binary(),
           Metric :: binary(),
           Time :: pos_integer(),
@@ -447,7 +437,7 @@ do_get(Con = #ddb_connection{socket = Socket}, Acc) ->
                  {error, stream, Connection :: connection()}.
 
 get(Bucket, Metric, Time, Count, Con =  #ddb_connection{mode = normal}) ->
-    case send_bin(dproto_tcp:encode({get, Bucket, Metric, Time, Count}), Con) of
+    case send_msg({get, Bucket, Metric, Time, Count}, Con) of
         {ok, Con1} ->
             do_get(Con1, <<>>);
         E ->
@@ -466,10 +456,8 @@ get(_, _, _, _, Con) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec set_ttl(Bucket :: binary(), TTL :: ttl(), Connection :: connection()) ->
-                {error, Error :: inet:posix(), Connection :: connection()} |
-                {error, {bad_ttl, TTL :: ttl()}, Connection :: connection()} |
-                {error, {bad_mode, stream}, Connection :: connection()} |
-                {ok, Connection :: connection()}.
+                     errors() |
+                     {ok, Connection :: connection()}.
 
 set_ttl(_Bucket, _TTL, Con = #ddb_connection{mode = stream}) ->
     {error, {bad_mode, stream}, Con};
@@ -478,8 +466,7 @@ set_ttl(_Bucket, TTL, Con) when
     {error, {bad_ttl, TTL}, Con};
 set_ttl(Bucket, TTL, Con) when
       is_integer(TTL);TTL =:= infinity ->
-    Bin = dproto_tcp:encode({ttl, Bucket, TTL}),
-    case send_bin(Bin, Con) of
+    case send_msg({ttl, Bucket, TTL}, Con) of
         {ok, Con1} ->
             {ok, Con1};
         E ->
@@ -509,10 +496,49 @@ send(_, _, _, Con = #ddb_connection{batch = Time}) when is_integer(Time) ->
     {error, {batch, Time}, Con};
 
 send(Metric, Time, Points, Con = #ddb_connection{mode = stream}) ->
-    send_bin(dproto_tcp:encode({stream, Metric, Time, Points}), Con);
+    send_msg({stream, Metric, Time, Points}, Con);
 
 send(_, _, _, Con) ->
     {error, no_stream, Con}.
+
+
+%%--------------------------------------------------------------------
+%% @doc Send an ordered list of events to a bucket.
+%%
+%% @end
+%%--------------------------------------------------------------------
+
+-spec events(Bucket :: binary(), Events :: [{pos_integer(), term()}],
+             Connection :: connection()) ->
+                    errors() |
+                    {ok, Connection :: connection()}.
+events(Bucket, Events, Con)
+  when is_binary(Bucket),
+       is_list(Events) ->
+    case send_msg({events, Bucket, Events}, Con) of
+        {ok, Con1} ->
+            {ok, Con1};
+        E ->
+            E
+    end.
+
+-spec read_events(Bucket :: binary(),
+                  Start :: pos_integer(),
+                  End :: pos_integer(),
+                  Connection :: connection()) ->
+                    errors() |
+                    {ok, Connection :: connection()}.
+read_events(Bucket, Start, End, Con)
+  when is_binary(Bucket),
+       is_integer(Start),
+       is_integer(End),
+       Start < End ->
+    case send_msg({get_events, Bucket, Start, End}, Con) of
+        {ok, Con1} ->
+            do_read(Con1, []);
+        E ->
+            E
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc Forces a connection to close.
@@ -533,6 +559,20 @@ close(Con = #ddb_connection{socket = Sock}) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+-spec send_msg(
+        dproto_tcp:tcp_message() |
+        dproto_tcp:stream_message() |
+        dproto_tcp:batch_message(),
+        connection()) ->
+                      {error, term, connection()} |
+                      {ok, connection()}.
+send_msg(Msg, Con) ->
+    send_bin(dproto_tcp:encode(Msg), Con).
+
+-spec send_bin(binary(), connection()) ->
+                      {error, term, connection()} |
+                      {ok, connection()}.
 
 send_bin(Bin, Con = #ddb_connection{socket = undefined}) ->
     send1(Bin, reconnect(Con));
@@ -633,3 +673,32 @@ to_batch(Metric, Point)
   when is_binary(Metric),
        is_binary(Point) ->
     dproto_tcp:encode({batch, Metric, Point}).
+
+do_read(Con = #ddb_connection{socket = Socket}, Acc) ->
+    case gen_tcp:recv(Socket, 0, ?TIMEOUT) of
+        {ok, Msg} ->
+            case dproto_tcp:decode(Msg) of
+                {events, Events} ->
+                    do_read(Con, [Acc | Events]);
+                events_end ->
+                    {ok, lists:flatten(Acc), Con}
+            end;
+        {error, E} ->
+            {error, E, close(Con)}
+    end.
+
+
+do_get(Con = #ddb_connection{socket = Socket}, Acc) ->
+    case gen_tcp:recv(Socket, 0, ?TIMEOUT) of
+        {ok, <<0>>} ->
+            {ok, Acc, Con};
+        {ok, <<1, Compressed/binary>>} ->
+            {ok, Data} = snappy:decompress(Compressed),
+            do_get(Con, <<Acc/binary, Data/binary>>);
+        {ok, <<2, Padding:64/integer, Compressed/binary>>} ->
+            {ok, Data} = snappy:decompress(Compressed),
+            do_get(Con, <<Acc/binary, Data/binary,
+                          (mmath_bin:empty(Padding))/binary>>);
+        {error, E} ->
+            {error, E, close(Con)}
+    end.
