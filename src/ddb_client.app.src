@@ -1,6 +1,6 @@
 {application,ddb_client,
              [{description,"DalmatinerDB client"},
-              {vsn,"0.1.30"},
+              {vsn,"0.1.31"},
               {registered,[]},
               {applications,[kernel,stdlib,mmath,dproto,snappy]},
               {env,[]},
