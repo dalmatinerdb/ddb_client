@@ -48,7 +48,7 @@
 
 -export([
          events/3,
-         read_events/4
+         read_events/5
         ]).
 
 -ignore_xref([batch/2, batch/3, batch_start/2, batch_end/1,
@@ -525,15 +525,16 @@ events(Bucket, Events, Con)
 -spec read_events(Bucket :: binary(),
                   Start :: pos_integer(),
                   End :: pos_integer(),
+                  Filter :: jsxd_filter:filters(),
                   Connection :: connection()) ->
                     errors() |
                     {ok, Connection :: connection()}.
-read_events(Bucket, Start, End, Con)
+read_events(Bucket, Start, End, Filter, Con)
   when is_binary(Bucket),
        is_integer(Start),
        is_integer(End),
        Start < End ->
-    case send_msg({get_events, Bucket, Start, End}, Con) of
+    case send_msg({get_events, Bucket, Start, End, Filter}, Con) of
         {ok, Con1} ->
             do_read(Con1, []);
         E ->
