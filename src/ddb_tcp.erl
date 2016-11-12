@@ -351,8 +351,7 @@ batch_end(Con) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec bucket_info(Bucket :: binary(), Connection :: connection()) ->
-                         {ok, {Res :: pos_integer(), PPF :: pos_integer(),
-                               TTL :: ttl()}, Connection :: connection()} |
+                         {ok, dproto_tcp:bucket_info(), Connection :: connection()} |
                          {error, stream, Connection :: connection()}.
 
 bucket_info(Bucket, Con =  #ddb_connection{mode = normal}) ->
