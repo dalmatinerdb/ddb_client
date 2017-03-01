@@ -55,7 +55,8 @@
               batch_start/2, bucket_info/2, close/1,
               connect/1, connect/2, connected/1, get/5,
               list/1, list/2, list/3, mode/1, send/4,
-              set_ttl/3, stream_mode/3, stream_mode/4]).
+              set_ttl/3, stream_mode/3, stream_mode/4,
+              read_events/5, events/3]).
 
 -export_type([connection/0]).
 
