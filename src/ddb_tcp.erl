@@ -69,7 +69,7 @@
          port,
          mode = normal,
          bucket,
-         resolution :: pos_integer(),
+         resolution :: pos_integer() | undefined,
          error = none,
          delay = 1,
          batch = false}).
