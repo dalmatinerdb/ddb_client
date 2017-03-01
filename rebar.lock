@@ -1,12 +1,12 @@
 {"1.1.0",
-[{<<"dproto">>,{pkg,<<"dproto">>,<<"0.2.4">>},0},
+[{<<"dproto">>,{pkg,<<"dproto">>,<<"0.2.5">>},0},
  {<<"jsxd">>,{pkg,<<"jsxd">>,<<"0.2.4">>},1},
  {<<"mmath">>,{pkg,<<"mmath">>,<<"0.2.15">>},0},
- {<<"snappy">>,{pkg,<<"snappy">>,<<"1.1.1">>},0}]}.
+ {<<"snappyer">>,{pkg,<<"snappyer">>,<<"1.1.3-1.0.5">>},0}]}.
 [
 {pkg_hash,[
- {<<"dproto">>, <<"7DD57B2356C2CAD03B34E16E9E23A603E8C603D27F2A0F0CC56C851FABA16F0A">>},
+ {<<"dproto">>, <<"7570D2E991B45319D1D465F3B6F798CE9D2CF7BEE2419F13E92DA9FFA827277E">>},
  {<<"jsxd">>, <<"C14114AFCA463F2D03D3FB6CC81FD51CDA8CA86A47E5AC3ABDF0CA572A73A413">>},
  {<<"mmath">>, <<"3A0E6FF4C6C41D511BED481B0E61229BFBBCDBEFF196263DF918D349006081AE">>},
- {<<"snappy">>, <<"D63449A58F1358046B7ADAEC166AE8929C2B19881E76C4E13284304FE887C39A">>}]}
+ {<<"snappyer">>, <<"A02E343245212CB52749EE2392444084CCBE41EB7BBDD6E99235399197683670">>}]}
 ].

@@ -693,10 +693,10 @@ do_get(Con = #ddb_connection{socket = Socket}, Acc) ->
         {ok, <<0>>} ->
             {ok, Acc, Con};
         {ok, <<1, Compressed/binary>>} ->
-            {ok, Data} = snappy:decompress(Compressed),
+            {ok, Data} = snappyer:decompress(Compressed),
             do_get(Con, <<Acc/binary, Data/binary>>);
         {ok, <<2, Padding:64/integer, Compressed/binary>>} ->
-            {ok, Data} = snappy:decompress(Compressed),
+            {ok, Data} = snappyer:decompress(Compressed),
             do_get(Con, <<Acc/binary, Data/binary,
                           (mmath_bin:empty(Padding))/binary>>);
         {error, E} ->
