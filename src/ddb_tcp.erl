@@ -26,23 +26,18 @@
 -define(TIMEOUT, 30000).
 
 -export([
-         connect/2,
-         connect/1,
+         connect/1, connect/2,
          mode/1,
          connected/1,
          close/1,
-         stream_mode/3,
-         stream_mode/4,
+         stream_mode/3, stream_mode/4,
          bucket_info/2,
-         list/1,
-         list/2,
-         list/3,
-         get/5,
+         list/1, list/2, list/3,
+         get/5, get/6,
          set_ttl/3,
          send/4,
          batch_start/2,
-         batch/2,
-         batch/3,
+         batch/2, batch/3,
          batch_end/1
         ]).
 
@@ -62,8 +57,6 @@
 
 -type socket() :: port().
 
--type ttl() :: pos_integer() | infinity.
-
 -record(ddb_connection,
         {socket :: socket() | undefined,
          host,
@@ -75,10 +68,20 @@
          delay = 1,
          batch = false}).
 
+-type bucket() :: binary().
+
+-type metric() :: metric().
+
+-type stream_delay() :: pos_integer().
+
+-type resolution() :: pos_integer().
+
+-type ttl() :: pos_integer() | infinity.
+
 -type errors() ::
-        {error, Error :: inet:posix(), Connection :: connection()} |
-        {error, {bad_ttl, TTL :: ttl()}, Connection :: connection()} |
-        {error, {bad_mode, stream}, Connection :: connection()}.
+        {error, Error :: inet:posix(), connection()} |
+        {error, {bad_ttl, ttl()}, connection()} |
+        {error, {bad_mode, stream}, connection()}.
 
 %%--------------------------------------------------------------------
 %% @type connection().
@@ -99,9 +102,9 @@
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec connect(Host :: inet:ip_address() | inet:hostname(),
-              Port :: inet:port_number()) ->
-                     {ok, connection()}.
+-spec connect(Host :: inet:ip_address() |
+                      inet:hostname(),
+              Port :: inet:port_number()) -> {ok, connection()}.
 
 connect(Host, Port) ->
     case gen_tcp:connect(Host, Port, ?OPTS, 500) of
@@ -126,8 +129,7 @@ connect(Host, Port) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec connect(Connection :: connection()) ->
-                     {ok, connection()}.
+-spec connect(connection()) -> {ok, connection()}.
 
 connect(Con) ->
     {ok, reconnect(Con)}.
@@ -138,10 +140,9 @@ connect(Con) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec mode(Connection :: connection()) ->
-                  {ok, normal} |
-                  {ok, {stream, Bucket :: binary()}} |
-                  {ok, {batch, Bucket :: binary()}}.
+-spec mode(connection()) -> {ok, normal} |
+                            {ok, {stream, bucket()}} |
+                            {ok, {batch, bucket()}}.
 
 mode(#ddb_connection{mode = stream, bucket=Bucket, batch = true}) ->
     {ok, {batch, Bucket}};
@@ -156,8 +157,7 @@ mode(#ddb_connection{mode = normal}) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec connected(Connection :: connection()) ->
-                       boolean().
+-spec connected(connection()) -> boolean().
 
 connected(#ddb_connection{socket = undefined}) ->
     false;
@@ -171,15 +171,11 @@ connected(_) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec stream_mode(Bucket :: binary(),
-                  Delay :: pos_integer(),
-                  Connection :: connection()) ->
-                         {ok, Connection :: connection()} |
-                         {error, Error :: inet:posix(),
-                          Connection :: connection()} |
-                         {error, {stream, OldBucket :: binary(),
-                                  OldDelay :: pos_integer()},
-                          Connection :: connection()}.
+-spec stream_mode(bucket(), stream_delay(), connection()) ->
+                    {ok, connection()} |
+                    {error, Error :: inet:posix(), connection()} |
+                    {error, {stream, OldBucket :: bucket(),
+                                     OldDelay :: stream_delay()}, connection()}.
 
 stream_mode(Bucket, Delay, Con = #ddb_connection{mode = stream,
                                                  bucket = Bucket,
@@ -202,17 +198,12 @@ stream_mode(Bucket, Delay, Con) ->
             E
     end.
 
--spec stream_mode(Bucket :: binary(),
-                  Delay :: pos_integer(),
-                  Resolution :: pos_integer(),
-                  Connection :: connection()) ->
-                         {ok, Connection :: connection()} |
-                         {error, Error :: inet:posix(),
-                          Connection :: connection()} |
-                         {error, {stream, OldBucket :: binary(),
-                                  OldDelay :: pos_integer(),
-                                  OldRes :: pos_integer()},
-                          Connection :: connection()}.
+-spec stream_mode(bucket(), stream_delay(), resolution(), connection()) ->
+                    {ok, connection()} |
+                    {error, Error :: inet:posix(), connection()} |
+                    {error, {stream, OldBucket :: bucket(),
+                                     OldDelay :: pos_integer(),
+                                     OldRes :: pos_integer()}, connection()}.
 
 stream_mode(Bucket, Delay, Res, Con = #ddb_connection{mode = stream,
                                                       bucket = Bucket,
@@ -246,14 +237,12 @@ stream_mode(Bucket, Delay, Res, Con) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec batch_start(Time :: non_neg_integer(), Connection :: connection()) ->
-                         {ok, Connection :: connection()} |
+-spec batch_start(Time :: non_neg_integer(), connection()) ->
+                         {ok, connection()} |
                          {error, {batch, Time :: non_neg_integer()},
-                          Connection :: connection()} |
-                         {error, Error :: inet:posix(),
-                          Connection :: connection()} |
-                         {error, {bad_mode, normal},
-                          Connection :: connection()}.
+                          connection()} |
+                         {error, Error :: inet:posix(), connection()} |
+                         {error, {bad_mode, normal}, connection()}.
 batch_start(_Time, Con = #ddb_connection{batch = Time}) when is_integer(Time) ->
     {error, {batch, Time}, Con};
 batch_start(_Time, Con = #ddb_connection{mode = normal}) ->
@@ -273,11 +262,10 @@ batch_start(Time, Con) when
 %% @doc Sends a batch of multiple values with a single tcp call.
 %% @end
 %%--------------------------------------------------------------------
--spec batch([{Metric :: binary() | [binary()], Point :: integer() | binary()}],
-            Connection :: connection()) ->
-                   {ok, Connection :: connection()} |
-                   {error, Error :: inet:posix(), Connection :: connection()} |
-                   {error, no_batch, Connection :: connection()}.
+-spec batch([{Metric :: metric() | [metric()], Point :: integer() | binary()}],
+            connection()) -> {ok, connection()} |
+                             {error, Error :: inet:posix(), connection()} |
+                             {error, no_batch, connection()}.
 batch(MPs, Con = #ddb_connection{batch = _Time})
   when is_integer(_Time),
        is_list(MPs) ->
@@ -296,14 +284,11 @@ batch(_MPs, Con) ->
 %% @doc Sends a single metric value pair for a batch
 %% @end
 %%--------------------------------------------------------------------
--spec batch(Metric :: binary() | [binary()],
+-spec batch(metric() | [metric()],
             Point :: integer() | binary(),
-            Connection :: connection()) ->
-                   {ok, Connection :: connection()} |
-                   {error, Error :: inet:posix(), Connection :: connection()} |
-                   {error, no_batch, Connection :: connection()}.
-
-
+            connection()) -> {ok, connection()} |
+                             {error, Error :: inet:posix(), connection()} |
+                             {error, no_batch, connection()}.
 
 batch(Metric, Point, Con) when is_integer(Point) ->
     batch(Metric, mmath_bin:from_list([Point]), Con);
@@ -321,18 +306,16 @@ batch(Metric, Point, Con = #ddb_connection{batch = _Time})
         E ->
             E
     end;
+
 batch(_Metric, _Point, Con) ->
     {error, no_batch, Con}.
-
 
 %%--------------------------------------------------------------------
 %% @doc Finalizes the batch transfer.
 %% @end
 %%--------------------------------------------------------------------
--spec batch_end(Connection :: connection()) ->
-                       {error, Error :: inet:posix(),
-                        Connection :: connection()} |
-                       {ok, Connection :: connection()}.
+-spec batch_end(connection()) -> {error, Error :: inet:posix(), connection()} |
+                                 {ok, connection()}.
 
 batch_end(Con = #ddb_connection{batch = _Time}) when is_integer(_Time) ->
     Con1 = Con#ddb_connection{batch = false},
@@ -342,6 +325,7 @@ batch_end(Con = #ddb_connection{batch = _Time}) when is_integer(_Time) ->
         E ->
             E
     end;
+
 batch_end(Con) ->
     Con1 = Con#ddb_connection{batch = false},
     {ok, Con1}.
@@ -351,9 +335,9 @@ batch_end(Con) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec bucket_info(Bucket :: binary(), Connection :: connection()) ->
-                         {ok, dproto_tcp:bucket_info(), Connection :: connection()} |
-                         {error, stream, Connection :: connection()}.
+-spec bucket_info(bucket(), connection()) ->
+                 {ok, dproto_tcp:bucket_info(), connection()} |
+                 {error, stream, connection()}.
 
 bucket_info(Bucket, Con =  #ddb_connection{mode = normal}) ->
     case send_msg({info, Bucket}, Con) of
@@ -378,8 +362,8 @@ bucket_info(_Bucket, Con) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec list(Connection :: connection()) ->
-                  {ok, [Bucket :: binary()], Connection :: connection()} |
-                  {error, stream, Connection :: connection()}.
+                  {ok, [bucket()], connection()} |
+                  {error, stream, connection()}.
 
 list(Con =  #ddb_connection{mode = normal}) ->
     do_list(send_msg(buckets, Con));
@@ -393,9 +377,9 @@ list(Con) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec list(Bucket :: binary(), Connection :: connection()) ->
-                  {ok, [Metric :: binary()], Connection :: connection()} |
-                  {error, stream, Connection :: connection()}.
+-spec list(bucket(), connection()) ->
+                  {ok, [metric()], connection()} |
+                  {error, stream, connection()}.
 
 list(Bucket, Con =  #ddb_connection{mode = normal}) ->
     do_list(send_msg({list, Bucket}, Con));
@@ -409,10 +393,9 @@ list(_Bucket, Con) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec list(Bucket :: binary(), Prefix :: binary(),
-           Connection :: connection()) ->
-                  {ok, [Metric :: binary()], Connection :: connection()} |
-                  {error, stream, Connection :: connection()}.
+-spec list(bucket(), Prefix :: binary(), connection()) ->
+                  {ok, [metric()], connection()} |
+                  {error, stream, connection()}.
 
 list(Bucket, Prefix, Con =  #ddb_connection{mode = normal}) ->
     do_list(send_msg({list, Bucket, Prefix}, Con));
@@ -427,24 +410,35 @@ list(_Bucket, _Prefix, Con) ->
 %% @end
 %%--------------------------------------------------------------------
 
--spec get(Bucket :: binary(),
-          Metric :: binary(),
+-spec get(bucket(),
+          metric(),
           Time :: pos_integer(),
           Count :: pos_integer(),
-          Connection :: connection()) ->
-                 {ok, Data :: binary(), Connection :: connection()} |
-                 {error, Error :: inet:posix(), Connection :: connection()} |
-                 {error, stream, Connection :: connection()}.
+          connection()) -> {ok, Data :: binary(), connection()} |
+                           {error, Error :: inet:posix(), connection()} |
+                           {error, stream, connection()}.
 
-get(Bucket, Metric, Time, Count, Con =  #ddb_connection{mode = normal}) ->
-    case send_msg({get, Bucket, Metric, Time, Count}, Con) of
+get(Bucket, Metric, Time, Count, Con) ->
+    get(Bucket, Metric, Time, Count, [], Con).
+
+-spec get(bucket(),
+          metric(),
+          Time :: pos_integer(),
+          Count :: pos_integer(),
+          Opts :: dproto_tcp:read_opts(),
+          connection()) -> {ok, Data :: binary(), connection()} |
+                           {error, Error :: inet:posix(), connection()} |
+                           {error, stream, connection()}.
+
+get(Bucket, Metric, Time, Count, Opts, Con = #ddb_connection{mode = normal}) ->
+    case send_msg({get, Bucket, Metric, Time, Count, Opts}, Con) of
         {ok, Con1} ->
             do_get(Con1, <<>>);
         E ->
             E
     end;
 
-get(_, _, _, _, Con) ->
+get(_, _, _, _, _, Con) ->
     {error, stream, Con}.
 
 %%--------------------------------------------------------------------
@@ -455,9 +449,8 @@ get(_, _, _, _, Con) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec set_ttl(Bucket :: binary(), TTL :: ttl(), Connection :: connection()) ->
-                     errors() |
-                     {ok, Connection :: connection()}.
+-spec set_ttl(bucket(), ttl(), connection()) -> errors() |
+                                                {ok, connection()}.
 
 set_ttl(_Bucket, _TTL, Con = #ddb_connection{mode = stream}) ->
     {error, {bad_mode, stream}, Con};
@@ -479,13 +472,13 @@ set_ttl(Bucket, TTL, Con) when
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec send(Metric :: binary() | [binary()],
+-spec send(Metric :: metric() | [metric()],
            Time :: pos_integer(),
            Points :: [integer()] | binary(),
-           Connection :: connection()) ->
-                  {ok, Connection :: connection()} |
-                  {error, Error :: inet:posix(), Connection :: connection()} |
-                  {error, no_stream, Connection :: connection()}.
+           connection()) ->
+                  {ok, connection()} |
+                  {error, Error :: inet:posix(), connection()} |
+                  {error, no_stream, connection()}.
 
 
 send([_M | _] = Metric, Time, Points, Con =  #ddb_connection{mode = stream})
@@ -508,10 +501,11 @@ send(_, _, _, Con) ->
 %% @end
 %%--------------------------------------------------------------------
 
--spec events(Bucket :: binary(), Events :: [{pos_integer(), term()}],
-             Connection :: connection()) ->
-                    errors() |
-                    {ok, Connection :: connection()}.
+-spec events(bucket(),
+             Events :: [{pos_integer(), term()}],
+             connection()) ->
+               errors() |
+               {ok, connection()}.
 events(Bucket, Events, Con)
   when is_binary(Bucket),
        is_list(Events) ->
@@ -522,13 +516,13 @@ events(Bucket, Events, Con)
             E
     end.
 
--spec read_events(Bucket :: binary(),
+-spec read_events(bucket(),
                   Start :: pos_integer(),
                   End :: pos_integer(),
                   Filter :: jsxd_filter:filters(),
-                  Connection :: connection()) ->
+                  connection()) ->
                     errors() |
-                    {ok, Connection :: connection()}.
+                    {ok, connection()}.
 read_events(Bucket, Start, End, Filter, Con)
   when is_binary(Bucket),
        is_integer(Start),
@@ -546,8 +540,7 @@ read_events(Bucket, Start, End, Filter, Con)
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec close(Connection :: connection()) ->
-                   Connection :: connection().
+-spec close(connection()) -> connection().
 
 close(Con = #ddb_connection{socket = undefined}) ->
     Con;
@@ -597,8 +590,7 @@ send1(Bin, Con = #ddb_connection{socket = Sock}) ->
             {ok, Con}
     end.
 
--spec reconnect(connection()) ->
-                       connection().
+-spec reconnect(connection()) -> connection().
 reconnect(Con = #ddb_connection{socket = undefined,
                                 host = Host,
                                 port = Port}) ->
@@ -687,7 +679,6 @@ do_read(Con = #ddb_connection{socket = Socket}, Acc) ->
         {error, E} ->
             {error, E, close(Con)}
     end.
-
 
 do_get(Con = #ddb_connection{socket = Socket}, Acc) ->
     case gen_tcp:recv(Socket, 0, ?TIMEOUT) of

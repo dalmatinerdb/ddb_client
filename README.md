@@ -8,7 +8,7 @@ Firstly, in order to read or write data it is necessary to open a connection:
 {ok, Con} = ddb_tcp:connect("127.0.0.1", 5555).
 ```
 
-For efficiency reasons, the Dalmatiner TCP endpoint can only accept incoming data when switched to stream mode. 
+For efficiency reasons, the Dalmatiner TCP endpoint can only accept incoming data when switched to stream mode.
 Therefore, in order to write data points, a connection needs to be swtiched to
 stream mode as follows:
 
@@ -24,10 +24,9 @@ before attempting to write:
 ```erlang
 Timestamp = 1466072419.
 Bucket = <<"my_bucket">>.
-Metric = <<2, "my", 6, "metric">>.
-Points = lists:seq(1, 10).
-PointsBinary = mmath_bin:from_list(Points).
-{ok, SCon1} = ddb_tcp:send(Metric, Timestamp, PointsBinary, SCon).
+Metric = dproto:metric_from_list([<<"base">>, <<"cpu">>]).
+Value  = mmath_bin:from_list([63.9, 64.0, 64.1]).
+{ok, SCon1} = ddb_tcp:send(Metric, Timestamp, Value, SCon).
 ```
 
 A stream connection is not required in order to perform read operations.  In
@@ -37,19 +36,40 @@ be read as follows:
 ```erlang
 Timestamp = 1466072419.
 Bucket = <<"my_bucket">>.
-Metric = <<2, "my", 6, "metric">>.
-Count = 10.
-{ok, {Res, Data}, Con1} = ddb_tcp:get(Bucket, Metric, Timestamp, Count, Con).
-
+Metric = dproto:metric_from_list([<<"base">>, <<"cpu">>]).
+Count = 3.
+{ok, Data, Con1} = ddb_tcp:get(Bucket, Metric, Timestamp, Count, Con).
 ```
 
-Finally, a connection may be closed:
+Finally, a connection should be closed when done:
 ```erlang
 Con1 = ddb_tcp:close(Con).
 ```
 
 For more information, please consult the [network protocol
 documentation](http://dalmatinerdb.readthedocs.io/en/latest/proto.html).
+
+## Read options
+It is possible to specify consistency parameters for an individual read operation if so
+required.  The following options are available:
+
+Read repair: `{rr, off}` - disables read repair for this get request
+             `{rr, on}` - ensures read repairs for this read request, even on recently written data
+             `{rr, default}` - will use the system defaults
+
+Read quorum: `{r, n}` - will use the same value as N for this get request
+             `{r, R :: pos_integer()}` - will use the value 0 < R <= N for this get request
+             `{r, default}` - will use the system default for R
+
+To use these options in a read request:
+```erlang
+Timestamp = 1466072419.
+Bucket = <<"my_bucket">>.
+Metric = dproto:metric_from_list([<<"base">>, <<"cpu">>]).
+Count = 3.
+Opts = [{rr, off}, {r, 1}].
+{ok, Data, Con1} = ddb_tcp:get(Bucket, Metric, Timestamp, Count, Opts, Con).
+```
 
 ## Connection pools
 
@@ -66,5 +86,5 @@ The client can be compiled using `rebar3`.
 Linting rules are specified using the Elvis plugin, and lint rules may be
 checked by running:
 ```
-$ ./rebar3 as lint lint
+$ rebar3 as lint lint
 ```
