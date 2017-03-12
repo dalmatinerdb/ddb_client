@@ -430,10 +430,21 @@ get(Bucket, Metric, Time, Count, Con) ->
                            {error, Error :: inet:posix(), connection()} |
                            {error, stream, connection()}.
 
-get(Bucket, Metric, Time, Count, Opts, Con = #ddb_connection{mode = normal}) ->
+get(Bucket, Metric, Time, Count, Opts,
+    Con = #ddb_connection{mode = normal, socket = Socket}) ->
     case send_msg({get, Bucket, Metric, Time, Count, Opts}, Con) of
         {ok, Con1} ->
-            do_get(Con1, <<>>);
+            case gen_tcp:recv(Socket, 0, ?TIMEOUT) of
+                {ok, Data} ->
+                    case dproto_tcp:decode_get_reply(Data) of
+                        {aggr, _Aggr, {more, Acc}} ->
+                            do_get(Con1, Acc);
+                        {aggr, _Aggr, {done, Acc}} ->
+                            {ok, Acc}
+                    end;
+                {error, E} ->
+                    {error, E, close(Con1)}
+            end;
         E ->
             E
     end;
