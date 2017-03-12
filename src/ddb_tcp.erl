@@ -693,15 +693,15 @@ do_read(Con = #ddb_connection{socket = Socket}, Acc) ->
 
 do_get(Con = #ddb_connection{socket = Socket}, Acc) ->
     case gen_tcp:recv(Socket, 0, ?TIMEOUT) of
-        {ok, <<0>>} ->
-            {ok, Acc, Con};
-        {ok, <<1, Compressed/binary>>} ->
-            {ok, Data} = snappyer:decompress(Compressed),
-            do_get(Con, <<Acc/binary, Data/binary>>);
-        {ok, <<2, Padding:64/integer, Compressed/binary>>} ->
-            {ok, Data} = snappyer:decompress(Compressed),
-            do_get(Con, <<Acc/binary, Data/binary,
-                          (mmath_bin:empty(Padding))/binary>>);
+        {ok, Data} ->
+            case dproto_tcp:decode_get_stream(Data, Acc) of
+                {done, Points} ->
+                    Acc1 = <<Acc/binary, Points/binary>>,
+                    {ok, Acc1, Con};
+                {more, Points} ->
+                    Acc1 = <<Acc/binary, Points/binary>>,
+                    do_get(Con, Acc1)
+            end;
         {error, E} ->
             {error, E, close(Con)}
     end.
