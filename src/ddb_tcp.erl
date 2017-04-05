@@ -696,11 +696,9 @@ do_get(Con = #ddb_connection{socket = Socket}, Acc) ->
         {ok, Data} ->
             case dproto_tcp:decode_get_stream(Data, Acc) of
                 {done, Points} ->
-                    Acc1 = <<Acc/binary, Points/binary>>,
-                    {ok, Acc1, Con};
+                    {ok, Points, Con};
                 {more, Points} ->
-                    Acc1 = <<Acc/binary, Points/binary>>,
-                    do_get(Con, Acc1)
+                    do_get(Con, Points)
             end;
         {error, E} ->
             {error, E, close(Con)}
