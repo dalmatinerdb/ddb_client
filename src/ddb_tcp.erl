@@ -33,7 +33,7 @@
          stream_mode/3, stream_mode/4,
          bucket_info/2,
          list/1, list/2, list/3,
-         get/5, get/6,
+         get/5, get/6, get/7,
          set_ttl/3,
          send/4,
          batch_start/2,
@@ -419,7 +419,7 @@ list(_Bucket, _Prefix, Con) ->
                            {error, stream, connection()}.
 
 get(Bucket, Metric, Time, Count, Con) ->
-    get(Bucket, Metric, Time, Count, [], Con).
+    get(Bucket, Metric, Time, Count, [], undefined, Con).
 
 -spec get(bucket(),
           metric(),
@@ -430,9 +430,24 @@ get(Bucket, Metric, Time, Count, Con) ->
                            {error, Error :: inet:posix(), connection()} |
                            {error, stream, connection()}.
 
-get(Bucket, Metric, Time, Count, Opts,
+get(Bucket, Metric, Time, Count, Opts, Con) ->
+    get(Bucket, Metric, Time, Count, Opts, undefined, Con).
+
+-spec get(bucket(),
+          metric(),
+          Time :: pos_integer(),
+          Count :: pos_integer(),
+          Opts :: dproto_tcp:read_opts(),
+          TIDs :: undefined | {pos_integer() | undefined,
+                               pos_integer() | undefined},
+          connection()) -> {ok, Data :: binary(), connection()} |
+                           {error, Error :: inet:posix(), connection()} |
+                           {error, stream, connection()}.
+
+
+get(Bucket, Metric, Time, Count, Opts, TIDs,
     Con = #ddb_connection{mode = normal, socket = Socket}) ->
-    case send_msg({get, Bucket, Metric, Time, Count, Opts}, Con) of
+    case send_msg({ot, TIDs, {get, Bucket, Metric, Time, Count, Opts}}, Con) of
         {ok, Con1} ->
             case gen_tcp:recv(Socket, 0, ?TIMEOUT) of
                 {ok, Data} ->
@@ -449,7 +464,7 @@ get(Bucket, Metric, Time, Count, Opts,
             E
     end;
 
-get(_, _, _, _, _, Con) ->
+get(_, _, _, _, _, _, Con) ->
     {error, stream, Con}.
 
 %%--------------------------------------------------------------------

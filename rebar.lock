@@ -1,11 +1,13 @@
 {"1.1.0",
-[{<<"dproto">>,{pkg,<<"dproto">>,<<"0.4.1">>},0},
+[{<<"dproto">>,
+  {git,"https://github.com/dalmatinerdb/dproto.git",
+       {ref,"f68cba09c7be0682693b3b7d59d5e4bb183d551d"}},
+  0},
  {<<"jsxd">>,{pkg,<<"jsxd">>,<<"0.2.4">>},1},
  {<<"mmath">>,{pkg,<<"mmath">>,<<"0.2.17">>},0},
  {<<"snappiest">>,{pkg,<<"snappiest">>,<<"1.2.0">>},1}]}.
 [
 {pkg_hash,[
- {<<"dproto">>, <<"A34C93BC248C9E06CF9098042EC14BB8B18A046FC5BFF986A128001F7E977C2F">>},
  {<<"jsxd">>, <<"C14114AFCA463F2D03D3FB6CC81FD51CDA8CA86A47E5AC3ABDF0CA572A73A413">>},
  {<<"mmath">>, <<"DFD52637B19F1EEF6B0AAAC473CAC2FC27A7190B6A6420454A917423527F3030">>},
  {<<"snappiest">>, <<"25706FEBB5ECAEA900D879A89C6D967C8D1BF700F8546BEBD0DEA514A8CCBFB7">>}]}
