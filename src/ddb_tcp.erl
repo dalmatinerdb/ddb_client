@@ -446,9 +446,9 @@ get(Bucket, Metric, Time, Count, Opts, Con) ->
 
 
 get(Bucket, Metric, Time, Count, Opts, TIDs,
-    Con = #ddb_connection{mode = normal, socket = Socket}) ->
+    Con = #ddb_connection{mode = normal}) ->
     case send_msg({ot, TIDs, {get, Bucket, Metric, Time, Count, Opts}}, Con) of
-        {ok, Con1} ->
+        {ok, Con1 = #ddb_connection{socket = Socket}} ->
             case gen_tcp:recv(Socket, 0, ?TIMEOUT) of
                 {ok, Data} ->
                     case dproto_tcp:decode_get_reply(Data) of
