@@ -17,6 +17,10 @@
 %%% the send command is supported, other commands will cause an error,
 %%% however not disconnect the system.
 %%%
+%%% Note: When writing to dalmatinerdb directly the frontend will
+%%% only show new metrics in listings once they've been first flushed
+%%% to disk. However, it still can be perfectly read.
+%%%
 %%% @end
 %%% Created : 15 Dec 2014 by Heinz Nikolaus Gies <heinz@licenser.net>
 %%%-------------------------------------------------------------------
