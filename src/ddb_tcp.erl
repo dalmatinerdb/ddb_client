@@ -40,6 +40,7 @@
          get/5, get/6, get/7,
          set_ttl/3,
          send/4,
+         flush/1,
          batch_start/2,
          batch/2, batch/3,
          batch_end/1
@@ -523,6 +524,27 @@ send(Metric, Time, Points, Con = #ddb_connection{mode = stream}) ->
 
 send(_, _, _, Con) ->
     {error, no_stream, Con}.
+
+%%--------------------------------------------------------------------
+%% @doc Sends data to the server on streaming mode. Returns an error
+%% when in batch mode.
+%%
+%% @end
+%%--------------------------------------------------------------------
+-spec flush(connection()) ->
+                  {ok, connection()} |
+                  {error, Error :: inet:posix(), connection()} |
+                  {error, no_stream, connection()}.
+
+flush(Con = #ddb_connection{batch = Time}) when is_integer(Time) ->
+    {error, {batch, Time}, Con};
+
+flush(Con = #ddb_connection{mode = stream}) ->
+    send_msg(flush, Con);
+
+flush(Con) ->
+    {error, no_stream, Con}.
+
 
 
 %%--------------------------------------------------------------------
