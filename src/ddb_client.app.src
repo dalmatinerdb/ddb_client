@@ -1,6 +1,6 @@
 {application,ddb_client,
              [{description,"DalmatinerDB client"},
-              {vsn, git},
+              {vsn,"0.5.7"},
               {registered,[]},
               {applications,[kernel,stdlib,mmath,dproto]},
               {env,[]},
