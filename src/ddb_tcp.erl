@@ -275,17 +275,31 @@ batch(_MPs, Con) ->
                              {error, Error :: inet:posix(), connection()} |
                              {error, no_batch, connection()}.
 
-batch(Metric, Point, Con) when is_integer(Point) ->
+batch(Metric, Point, Con = #ddb_connection{hpts = false}) when is_integer(Point) ->
     batch(Metric, mmath_bin:from_list([Point]), Con);
+
+batch(Metric, {T, Point}, Con = #ddb_connection{hpts = true}) when is_integer(Point) ->
+    batch(Metric, mmath_hpts:from_list([{T, Point}]), Con);
 
 batch([_M | _] = Metric, Point, Con) when is_binary(_M) ->
     batch(dproto:metric_from_list(Metric), Point, Con);
 
-batch(Metric, Point, Con = #ddb_connection{batch = _Time})
+batch(Metric, Point, Con = #ddb_connection{batch = _Time, hpts = false})
   when is_binary(Metric),
        is_binary(Point),
        is_integer(_Time) ->
     case send_msg({batch, Metric, Point}, Con) of
+        {ok, Con1} ->
+            {ok, Con1};
+        E ->
+            E
+    end;
+
+batch(Metric, Point, Con = #ddb_connection{batch = _Time, hpts = true})
+  when is_binary(Metric),
+       is_binary(Point),
+       is_integer(_Time) ->
+    case send_msg({batch_hpts, Metric, Point}, Con) of
         {ok, Con1} ->
             {ok, Con1};
         E ->

@@ -1,7 +1,7 @@
 {"1.1.0",
 [{<<"dproto">>,
   {git,"https://gitlab.com/Project-FiFo/DalmatinerDB/dproto.git",
-       {ref,"42259a3e5424f8e65713a8a6e97d775ce6583bd2"}},
+       {ref,"82dcc14c42998ff01233aacf5024954dfd6bbd64"}},
   0},
  {<<"jsxd">>,{pkg,<<"jsxd">>,<<"0.2.4">>},1},
  {<<"mmath">>,{pkg,<<"mmath">>,<<"0.2.24">>},0},
