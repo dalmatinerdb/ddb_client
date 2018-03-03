@@ -180,26 +180,8 @@ connected(_) ->
                     {error, {stream, OldBucket :: bucket(),
                                      OldDelay :: stream_delay()}, connection()}.
 
-stream_mode(Bucket, Delay, Con = #ddb_connection{mode = stream,
-                                                 bucket = Bucket,
-                                                 delay = Delay}) ->
-    {ok, Con};
-
-stream_mode(_Bucket, _Delay, Con = #ddb_connection{mode = stream,
-                                                   bucket = OldBucket,
-                                                   delay = OldDelay}) ->
-    {error, {stream, OldBucket, OldDelay}, Con};
-
 stream_mode(Bucket, Delay, Con) ->
-    Con1 = Con#ddb_connection{mode = stream,
-                              bucket = Bucket,
-                              delay = Delay},
-    case send_msg({stream, Bucket, Delay}, Con1) of
-        {ok, Con2} ->
-            {ok, reset_state(Con2)};
-        E ->
-            E
-    end.
+    stream_mode(Bucket, Delay, false, Con).
 
 -spec stream_mode(bucket(), stream_delay(),boolean(), connection()) ->
                     {ok, connection()} |
