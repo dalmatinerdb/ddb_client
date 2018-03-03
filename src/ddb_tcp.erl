@@ -68,7 +68,7 @@
          port,
          mode = normal,
          bucket,
-         resolution :: pos_integer() | undefined,
+         hpts = false :: boolean(),
          error = none,
          delay = 1,
          batch = false}).
@@ -78,8 +78,6 @@
 -type metric() :: metric().
 
 -type stream_delay() :: pos_integer().
-
--type resolution() :: pos_integer().
 
 -type ttl() :: pos_integer() | infinity.
 
@@ -203,32 +201,32 @@ stream_mode(Bucket, Delay, Con) ->
             E
     end.
 
--spec stream_mode(bucket(), stream_delay(), resolution(), connection()) ->
+-spec stream_mode(bucket(), stream_delay(),boolean(), connection()) ->
                     {ok, connection()} |
                     {error, Error :: inet:posix(), connection()} |
                     {error, {stream, OldBucket :: bucket(),
                                      OldDelay :: pos_integer(),
                                      OldRes :: pos_integer()}, connection()}.
 
-stream_mode(Bucket, Delay, Res, Con = #ddb_connection{mode = stream,
-                                                      bucket = Bucket,
-                                                      delay = Delay,
-                                                      resolution = Res}) ->
+stream_mode(Bucket, Delay, HPTS, Con = #ddb_connection{mode = stream,
+                                                       bucket = Bucket,
+                                                       delay = Delay,
+                                                       hpts = HPTS}) ->
     {ok, Con};
 
-stream_mode(_Bucket, _Delay, _Res, Con = #ddb_connection{mode = stream,
-                                                         resolution = OldRes,
-                                                         bucket = OldBucket,
-                                                         delay = OldDelay}) ->
-    {error, {stream, OldBucket, OldDelay, OldRes}, Con};
+stream_mode(_Bucket, _Delay, _HPTS, Con = #ddb_connection{mode = stream,
+                                                          hpts = OldHPTS,
+                                                          bucket = OldBucket,
+                                                          delay = OldDelay}) ->
+    {error, {stream, OldBucket, OldDelay, OldHPTS}, Con};
 
 
-stream_mode(Bucket, Delay, Res, Con) ->
+stream_mode(Bucket, Delay, HPTS, Con) when HPTS =:= true; HPTS =:= false ->
     Con1 = Con#ddb_connection{mode = stream,
                               bucket = Bucket,
-                              resolution = Res,
+                              hpts = HPTS,
                               delay = Delay},
-    case send_msg({stream, Bucket, Delay, Res}, Con1) of
+    case send_msg({stream_v2, Bucket, Delay, HPTS}, Con1) of
         {ok, Con2} ->
             {ok, reset_state(Con2)};
         E ->
@@ -505,7 +503,7 @@ set_ttl(Bucket, TTL, Con) when
 %%--------------------------------------------------------------------
 -spec send(Metric :: metric() | [metric()],
            Time :: pos_integer(),
-           Points :: [integer()] | binary(),
+           Points :: [number() | {non_neg_integer(), number()}] | binary(),
            connection()) ->
                   {ok, connection()} |
                   {error, Error :: inet:posix(), connection()} |
@@ -519,7 +517,11 @@ send([_M | _] = Metric, Time, Points, Con =  #ddb_connection{mode = stream})
 send(_, _, _, Con = #ddb_connection{batch = Time}) when is_integer(Time) ->
     {error, {batch, Time}, Con};
 
-send(Metric, Time, Points, Con = #ddb_connection{mode = stream}) ->
+send(Metric, Time, [{_, _} | _] = Points, Con = #ddb_connection{mode = stream, hpts = true}) ->
+    send_msg({stream, Metric, Time, mmath_hpts:from_list(Points)}, Con);
+send(Metric, Time, Points, Con = #ddb_connection{mode = stream, hpts = true}) when is_binary(Points) ->
+    send_msg({stream, Metric, Time, Points}, Con);
+send(Metric, Time, Points, Con = #ddb_connection{mode = stream, hpts = false}) ->
     send_msg({stream, Metric, Time, Points}, Con);
 
 send(_, _, _, Con) ->

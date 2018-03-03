@@ -1,12 +1,14 @@
 {"1.1.0",
-[{<<"dproto">>,{pkg,<<"dproto">>,<<"0.5.2">>},0},
+[{<<"dproto">>,
+  {git,"https://gitlab.com/Project-FiFo/DalmatinerDB/dproto.git",
+       {ref,"42259a3e5424f8e65713a8a6e97d775ce6583bd2"}},
+  0},
  {<<"jsxd">>,{pkg,<<"jsxd">>,<<"0.2.4">>},1},
- {<<"mmath">>,{pkg,<<"mmath">>,<<"0.2.17">>},0},
+ {<<"mmath">>,{pkg,<<"mmath">>,<<"0.2.24">>},0},
  {<<"snappiest">>,{pkg,<<"snappiest">>,<<"1.2.0">>},1}]}.
 [
 {pkg_hash,[
- {<<"dproto">>, <<"D1C9929353589BD395CAB3E5C6E1CFC4DC8B0660527145E2DD221771D4467ABD">>},
  {<<"jsxd">>, <<"C14114AFCA463F2D03D3FB6CC81FD51CDA8CA86A47E5AC3ABDF0CA572A73A413">>},
- {<<"mmath">>, <<"DFD52637B19F1EEF6B0AAAC473CAC2FC27A7190B6A6420454A917423527F3030">>},
+ {<<"mmath">>, <<"1949802F7731ED06DFFB61EC8882EDABC2B3EB0A0EB6D93E5087DEEAA750CE25">>},
  {<<"snappiest">>, <<"25706FEBB5ECAEA900D879A89C6D967C8D1BF700F8546BEBD0DEA514A8CCBFB7">>}]}
 ].
