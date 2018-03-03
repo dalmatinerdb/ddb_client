@@ -251,10 +251,10 @@ batch_start(Time, Con) when
             connection()) -> {ok, connection()} |
                              {error, Error :: inet:posix(), connection()} |
                              {error, no_batch, connection()}.
-batch(MPs, Con = #ddb_connection{batch = _Time})
+batch(MPs, Con = #ddb_connection{batch = _Time, hpts = HPTS})
   when is_integer(_Time),
        is_list(MPs) ->
-    Bin = << <<(to_batch(Metric, Point))/binary>> || {Metric, Point} <- MPs >>,
+    Bin = << <<(to_batch(Metric, Point, HPTS))/binary>> || {Metric, Point} <- MPs >>,
     case send_bin(Bin, Con) of
         {ok, Con1} ->
             {ok, Con1};
@@ -706,16 +706,20 @@ do_list({ok, Con1 = #ddb_connection{socket = S}}) ->
 do_list(Error) ->
     Error.
 
-to_batch(Metric, Point) when is_integer(Point) ->
-    to_batch(Metric, mmath_bin:from_list([Point]));
+to_batch(Metric, Point, false) when is_integer(Point) ->
+    to_batch(Metric, mmath_bin:from_list([Point]), false);
 
-to_batch([_M | _] = Metric, Point) when is_binary(_M) ->
-    to_batch(dproto:metric_from_list(Metric), Point);
+to_batch([_M | _] = Metric, Point, HPTS) when is_binary(_M) ->
+    to_batch(dproto:metric_from_list(Metric), Point, HPTS);
 
-to_batch(Metric, Point)
+to_batch(Metric, Point, true)
   when is_binary(Metric),
        is_binary(Point) ->
-    dproto_tcp:encode({batch, Metric, Point}).
+    dproto_tcp:encode({batch_hpts, Metric, Point});
+to_batch(Metric, Point, true)
+  when is_binary(Metric),
+       is_binary(Point) ->
+    dproto_tcp:encode({batch_hpts, Metric, Point}).
 
 do_read(Con = #ddb_connection{socket = Socket}, Acc) ->
     case gen_tcp:recv(Socket, 0, ?TIMEOUT) of
