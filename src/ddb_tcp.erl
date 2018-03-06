@@ -543,8 +543,6 @@ flush(Con = #ddb_connection{mode = stream}) ->
 flush(Con) ->
     {error, no_stream, Con}.
 
-
-
 %%--------------------------------------------------------------------
 %% @doc Send an ordered list of events to a bucket.
 %%
